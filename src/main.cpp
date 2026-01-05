@@ -13,9 +13,12 @@ int main() {
     std::cout << "$ ";
 
     std::getline(std::cin, prompt);
-
+    if(prompt == "exit"){
+      return 0;
+    }
+    
     std::cout << prompt << ": command not found" << "\n";
-  } while(prompt != "exit");
+  } while(true);
 
   return 0;
 }
