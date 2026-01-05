@@ -64,7 +64,7 @@ std::string type(std::string str){
   else cmd = str;
 
   if(cmd == "exit" || cmd == "echo" || cmd == "type"){
-    return cmd + " is a shell buildin";
+    return cmd + " is a shell builtin";
   }
   
   return cmd + ": not found";
