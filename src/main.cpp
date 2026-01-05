@@ -9,7 +9,6 @@ int main() {
   std::string prompt;
 
   // TODO: Uncomment the code below to pass the first stage
-
   do{
     std::cout << "$ ";
 
