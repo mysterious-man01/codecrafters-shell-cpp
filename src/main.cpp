@@ -9,11 +9,14 @@ int main() {
   std::string prompt;
 
   // TODO: Uncomment the code below to pass the first stage
-  std::cout << "$ ";
 
-  std::getline(std::cin, prompt);
+  do{
+    std::cout << "$ ";
 
-  std::cout << prompt << ": command not found" << "\n";
+    std::getline(std::cin, prompt);
+
+    std::cout << prompt << ": command not found" << "\n";
+  } while(prompt != "exit");
 
   return 0;
 }
