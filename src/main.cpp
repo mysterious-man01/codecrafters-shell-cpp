@@ -20,8 +20,6 @@ int main() {
 
   size_t end_cmd_pos;
 
-  std::cout << "PATH=" << PATH << std::endl; // Remove
-
   // Shell REPL loop
   do{
     std::cout << "$ ";
