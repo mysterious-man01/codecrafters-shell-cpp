@@ -76,7 +76,7 @@ std::string echo(std::string str){
 
 void pwd(){
   try{
-    std::cout << fs::absolute(" ").string() << std::endl;
+    std::cout << fs::current_path().string() << std::endl;
   } catch(const fs::filesystem_error& e){
     std::cerr << "Filesystem error: " << e.what() << std::endl;
   }
