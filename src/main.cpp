@@ -196,7 +196,7 @@ int OSexec(std::string cmd, std::string args){
   }
 
   std::vector<char *> c_argv;
-  c_argv.push_back(const_cast<char*>(cmd_path.c_str()));
+  c_argv.push_back(const_cast<char*>(cmd.c_str()));
 
   for(auto& i : c_args){
     if(i != "")
@@ -208,7 +208,7 @@ int OSexec(std::string cmd, std::string args){
   pid_t pid = fork();
 
   if(pid == 0){
-    execvp(cmd_path.c_str(), c_argv.data());
+    execvp(cmd.c_str(), c_argv.data());
     perror("execvp");
     return -1;
   }
