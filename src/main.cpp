@@ -11,6 +11,8 @@ std::string echo(std::string str);
 
 std::string type(std::string str);
 
+void pwd();
+
 int OSexec(std::string cmd, std::string args);
 
 const std::string PATH = std::getenv("PATH");
@@ -51,6 +53,11 @@ int main() {
       std::cout << type(prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos))) << '\n';
     }
 
+    // Call command pwd
+    else if(command == "pwd"){
+      pwd();
+    }
+
     else{
       std::string args = prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos));
 
@@ -67,6 +74,14 @@ std::string echo(std::string str){
   return str;
 }
 
+void pwd(){
+  try{
+    std::cout << fs::absolute(" ").string() << std::endl;
+  } catch(const fs::filesystem_error& e){
+    std::cerr << "Filesystem error: " << e.what() << std::endl;
+  }
+}
+
 // type command
 std::string type(std::string str){
   std::string cmd;
@@ -80,7 +95,7 @@ std::string type(std::string str){
 
   if(cmd.empty()) return "";
 
-  if(cmd == "exit" || cmd == "echo" || cmd == "type")
+  if(cmd == "exit" || cmd == "echo" || cmd == "type" || cmd == "pwd")
     return cmd + " is a shell builtin";
   
   size_t offset = 0, temp; 
