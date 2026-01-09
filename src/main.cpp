@@ -11,11 +11,14 @@ std::string echo(std::string str);
 
 std::string type(std::string str);
 
-void pwd();
+std::string pwd();
+
+void cd(std::string path);
 
 int OSexec(std::string cmd, std::string args);
 
 const std::string PATH = std::getenv("PATH");
+std::string previous_path;
 
 int main() {
   // Flush after every std::cout / std:cerr
@@ -55,7 +58,11 @@ int main() {
 
     // Call command pwd
     else if(command == "pwd"){
-      pwd();
+      std::cout << pwd() << std::endl;
+    }
+
+    else if(command == "cd"){
+      cd(prompt.substr(end_cmd_pos + 1, (prompt.find('\n') - end_cmd_pos)));
     }
 
     else{
@@ -74,11 +81,25 @@ std::string echo(std::string str){
   return str;
 }
 
-void pwd(){
-  try{
-    std::cout << fs::current_path().string() << std::endl;
-  } catch(const fs::filesystem_error& e){
-    std::cerr << "Filesystem error: " << e.what() << std::endl;
+std::string pwd(){
+  return fs::current_path().string();
+}
+
+void cd(std::string path){
+  if(path == "-"){
+    path = previous_path.empty() ? pwd() : previous_path;
+    previous_path = pwd();
+  }
+
+  if(path == "~"){
+    std::string user = std::string(std::getenv("USER"));
+    path = "/home/" + user;
+  }
+  
+  previous_path = pwd();
+  
+  if(chdir(path.c_str()) != 0){
+    std::cout << "cd: " << path << ": No such file or directory" << std::endl;
   }
 }
 
@@ -95,7 +116,8 @@ std::string type(std::string str){
 
   if(cmd.empty()) return "";
 
-  if(cmd == "exit" || cmd == "echo" || cmd == "type" || cmd == "pwd")
+  if(cmd == "exit" || cmd == "echo" 
+    || cmd == "type" || cmd == "pwd" || cmd == "cd")
     return cmd + " is a shell builtin";
   
   size_t offset = 0, temp; 
