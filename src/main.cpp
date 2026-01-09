@@ -1,12 +1,17 @@
 #include <iostream>
 #include <string>
 #include <filesystem>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
 std::string echo(std::string str);
 
 std::string type(std::string str);
+
+int OSexec(std::string cmd, std::string args);
 
 const std::string PATH = std::getenv("PATH");
 
@@ -47,7 +52,10 @@ int main() {
     }
 
     else{
-      std::cout << command << ": command not found" << "\n";
+      std::string args = prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos));
+
+      if(OSexec(command, args))
+        std::cout << command << ": command not found" << "\n";
     }
   } while(true);
 
@@ -64,7 +72,6 @@ std::string type(std::string str){
   std::string cmd;
   size_t end_cmd_pos;
   
-
   end_cmd_pos = str.find(' ', 0);
   if(end_cmd_pos != str.npos){
     cmd = str.substr(0, end_cmd_pos);
@@ -80,18 +87,15 @@ std::string type(std::string str){
   const size_t npos = PATH.npos;
   std::string path_dir;
   
-  while(offset != npos){
-    if(offset != 0) offset++;
-
+  while(offset < PATH.size()){
     temp = PATH.find(':', offset);
-    if(temp != npos){
-      path_dir = PATH.substr(offset, temp - offset);
-      offset = temp;
+    if(temp == std::string::npos){
+      path_dir = PATH.substr(offset, PATH.find('\n', offset) - offset);
+      break;
     }
-    else{
-      path_dir = PATH;
-      offset = temp;
-    }
+
+    path_dir = PATH.substr(offset, temp - offset);
+    offset = temp + 1;
 
     if(path_dir.empty()) continue;
 
@@ -102,8 +106,8 @@ std::string type(std::string str){
             fs::perms perms = fs::status(entry).permissions();
 
             if((perms & fs::perms::owner_exec) != fs::perms::none || 
-              (perms & fs::perms::group_exec) != fs::perms::none || 
-              (perms & fs::perms::others_exec) != fs::perms::none)
+               (perms & fs::perms::group_exec) != fs::perms::none || 
+               (perms & fs::perms::others_exec) != fs::perms::none)
               return cmd + " is " + entry.path().string();
           }
         }
@@ -114,4 +118,103 @@ std::string type(std::string str){
   }
   
   return cmd + ": not found";
+}
+
+// External command executor
+int OSexec(std::string cmd, std::string args){
+  if(cmd.empty()) return -1;
+
+  size_t offset = 0, temp;
+  std::string path_dir;
+  std::string cmd_path;
+
+  while(offset < PATH.size()){
+    temp = PATH.find(':', offset);
+    if(temp == std::string::npos){
+      path_dir = PATH.substr(offset, PATH.find('\n', offset) - offset);
+      break;
+    }
+
+    path_dir = PATH.substr(offset, temp - offset);
+    offset = temp + 1;
+
+    if(path_dir.empty()) continue;
+
+    if(fs::exists(path_dir)){
+      try{
+        for(const auto& entry : fs::directory_iterator(path_dir)){
+          if(cmd == entry.path().filename() && fs::is_regular_file(entry)){
+            fs::perms perms = fs::status(entry).permissions();
+
+            if((perms & fs::perms::owner_exec) != fs::perms::none || 
+               (perms & fs::perms::group_exec) != fs::perms::none || 
+               (perms & fs::perms::others_exec) != fs::perms::none)
+            {
+              cmd_path = entry.path();
+              break;
+            }
+          }
+        }
+      } catch(fs::filesystem_error& e){
+        std::cerr << "Error accessing directory: " << e.what() << std::endl;
+      }
+    }
+  }
+
+  if(cmd_path.empty()) return -1;
+
+  offset = 0;
+  std::vector<std::string> c_args;
+  if(args.empty())
+    c_args.push_back("");
+
+  while (offset < args.size()) {
+    while (offset < args.size() && args[offset] == ' ')
+      offset++;
+
+    if (offset >= args.size())
+      break;
+
+    if (args[offset] == '"') {
+      size_t end = args.find('"', offset + 1);
+      if (end == std::string::npos){
+        c_args.push_back(args.substr(offset, args.find('\n', offset) - offset));
+        break;
+      }
+
+      c_args.push_back(args.substr(offset, end - offset + 2));
+      offset = end + 1;
+    }
+    else {
+      size_t end = args.find(' ', offset);
+      if (end == std::string::npos)
+          end = args.size();
+
+      c_args.push_back(args.substr(offset, end - offset));
+      offset = end;
+    }
+  }
+
+  std::vector<char *> c_argv;
+  c_argv.push_back(const_cast<char*>(cmd_path.c_str()));
+
+  for(auto& i : c_args){
+    if(i != "")
+      c_argv.push_back(i.data());
+  }
+
+  c_argv.push_back(nullptr);
+
+  pid_t pid = fork();
+
+  if(pid == 0){
+    execvp(cmd_path.c_str(), c_argv.data());
+    perror("execvp");
+    return -1;
+  }
+  else{
+    waitpid(pid, nullptr, 0);
+  }
+
+  return 0;
 }
