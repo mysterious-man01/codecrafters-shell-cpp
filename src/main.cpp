@@ -78,7 +78,50 @@ int main() {
 
 // echo command
 std::string echo(std::string str){
-  return str;
+  size_t offset = 0;
+  std::string txt;
+  while(offset < str.size()){
+    if (str[offset] == ' ') {
+      txt += ' ';
+      while (offset < str.size() && str[offset] == ' ')
+        offset++;
+      continue;
+    }
+
+    if(offset >= str.size())
+      break;
+
+    if(str[offset] == '\''){
+      size_t end = str.find('\'', offset + 1);
+      if (end == std::string::npos){
+        txt += str.substr(offset + 1, str.find('\n', offset) - offset);
+        break;
+      }
+
+      txt += str.substr(offset + 1, end - offset - 1);
+      offset = end + 1;
+    }
+    else{
+      size_t end = str.find(' ', offset);
+      size_t quote = str.find('\'', offset);
+
+      if(end < quote){
+        txt += str.substr(offset, end - offset);
+        offset = end;
+      }
+      else if(quote < end){
+        txt += str.substr(offset, quote - offset);
+        offset = quote + 1;
+      }
+      else{
+        end = str.size();
+        txt += str.substr(offset, end - offset);
+        offset = end;
+      }
+    }
+  }
+
+  return txt;
 }
 
 std::string pwd(){
@@ -213,6 +256,16 @@ int OSexec(std::string cmd, std::string args){
 
     if (args[offset] == '"') {
       size_t end = args.find('"', offset + 1);
+      if (end == std::string::npos){
+        c_args.push_back(args.substr(offset, args.find('\n', offset) - offset));
+        break;
+      }
+
+      c_args.push_back(args.substr(offset, end - offset + 2));
+      offset = end + 1;
+    }
+    else if (args[offset] == '\'') {
+      size_t end = args.find('\'', offset + 1);
       if (end == std::string::npos){
         c_args.push_back(args.substr(offset, args.find('\n', offset) - offset));
         break;
