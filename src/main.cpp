@@ -114,14 +114,19 @@ std::string echo(std::string str){
     else{
       size_t end = str.find(' ', offset);
       size_t quote = str.find('\'', offset);
+      size_t d_quote = str.find('"', offset);
 
-      if(end < quote){
+      if(end < quote && end < d_quote){
         txt += str.substr(offset, end - offset);
         offset = end;
       }
-      else if(quote < end){
+      else if(quote < end && quote < d_quote){
         txt += str.substr(offset, quote - offset);
         offset = quote + 1;
+      }
+      else if(d_quote < end && d_quote < quote){
+        txt += str.substr(offset, d_quote - offset);
+        offset = d_quote + 1;
       }
       else{
         end = str.size();
