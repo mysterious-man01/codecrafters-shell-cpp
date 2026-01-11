@@ -81,9 +81,9 @@ std::string echo(std::string str){
   size_t offset = 0;
   std::string txt;
   while(offset < str.size()){
-    if (str[offset] == ' ') {
+    if(str[offset] == ' '){
       txt += ' ';
-      while (offset < str.size() && str[offset] == ' ')
+      while(offset < str.size() && str[offset] == ' ')
         offset++;
       continue;
     }
@@ -271,7 +271,7 @@ int OSexec(std::string cmd, std::string args){
         break;
       }
 
-      c_args.push_back(args.substr(offset, end - offset + 2));
+      c_args.push_back(args.substr(offset + 1, end - offset - 1));
       offset = end + 1;
     }
     else {
