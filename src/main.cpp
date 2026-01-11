@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 #include <vector>
 
-
 namespace fs = std::filesystem;
 
 std::string echo(std::string str);
@@ -93,8 +92,7 @@ void cd(std::string path){
   }
 
   if(path == "~"){
-    std::string user = std::string(std::getenv("USER"));
-    path = "/home/" + user;
+    path = std::getenv("HOME");
   }
   
   previous_path = pwd();
