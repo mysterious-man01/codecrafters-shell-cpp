@@ -101,6 +101,16 @@ std::string echo(std::string str){
       txt += str.substr(offset + 1, end - offset - 1);
       offset = end + 1;
     }
+    else if(str[offset] == '"'){
+      size_t end = str.find('"', offset + 1);
+      if (end == std::string::npos){
+        txt += str.substr(offset + 1, str.find('\n', offset) - offset);
+        break;
+      }
+
+      txt += str.substr(offset + 1, end - offset - 1);
+      offset = end + 1;
+    }
     else{
       size_t end = str.find(' ', offset);
       size_t quote = str.find('\'', offset);
@@ -254,14 +264,14 @@ int OSexec(std::string cmd, std::string args){
     if (offset >= args.size())
       break;
 
-    if (args[offset] == '"') {
+    else if(args[offset] == '"'){
       size_t end = args.find('"', offset + 1);
       if (end == std::string::npos){
-        c_args.push_back(args.substr(offset, args.find('\n', offset) - offset));
+        c_args.push_back(args.substr(offset + 1, args.find('\n', offset) - offset));
         break;
       }
 
-      c_args.push_back(args.substr(offset, end - offset + 2));
+      c_args.push_back(args.substr(offset + 1, end - offset - 1));
       offset = end + 1;
     }
     else if (args[offset] == '\'') {
