@@ -20,6 +20,13 @@ int OSexec(std::string cmd, std::string args);
 const std::string PATH = std::getenv("PATH");
 std::string previous_path;
 
+enum class State {
+  Normal,
+  SingleQuote,
+  DoubleQuote
+};
+
+
 int main() {
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
@@ -76,65 +83,70 @@ int main() {
   return 0;
 }
 
-// echo command
-std::string echo(std::string str){
-  size_t offset = 0;
-  std::string txt;
-  while(offset < str.size()){
-    if(str[offset] == ' '){
-      txt += ' ';
-      while(offset < str.size() && str[offset] == ' ')
-        offset++;
-      continue;
-    }
+std::vector<std::string> parser(std::string str){
+  State state = State::Normal;
+  std::string current;
+  std::vector<std::string> tokens;
+  
+  for(size_t i=0; i < str.size(); i++){
+    char ch = str[i];
 
-    if(offset >= str.size())
-      break;
-
-    if(str[offset] == '\''){
-      size_t end = str.find('\'', offset + 1);
-      if (end == std::string::npos){
-        txt += str.substr(offset + 1, str.find('\n', offset) - offset);
+    switch(state){
+      case State::Normal:
+        if(ch == ' '){
+          if(!current.empty()){
+            tokens.push_back(current);
+            current.clear();
+          }
+        }
+        else if(ch == '\''){
+          state = State::SingleQuote;
+        }
+        else if(ch == '"'){
+          state = State::DoubleQuote;
+        }
+        else if(ch == '\\' &&  i+1 < str.size()){
+          current += str[++i];
+        }
+        else{
+          current += ch;
+        }
         break;
-      }
-
-      txt += str.substr(offset + 1, end - offset - 1);
-      offset = end + 1;
-    }
-    else if(str[offset] == '"'){
-      size_t end = str.find('"', offset + 1);
-      if (end == std::string::npos){
-        txt += str.substr(offset + 1, str.find('\n', offset) - offset);
+      
+      case State::SingleQuote:
+        if(ch == '\''){
+          state = State::Normal;
+        }
+        else{
+          current += ch;
+        }
         break;
-      }
 
-      txt += str.substr(offset + 1, end - offset - 1);
-      offset = end + 1;
-    }
-    else{
-      size_t end = str.find(' ', offset);
-      size_t quote = str.find('\'', offset);
-      size_t d_quote = str.find('"', offset);
-
-      if(end < quote && end < d_quote){
-        txt += str.substr(offset, end - offset);
-        offset = end;
-      }
-      else if(quote < end && quote < d_quote){
-        txt += str.substr(offset, quote - offset);
-        offset = quote + 1;
-      }
-      else if(d_quote < end && d_quote < quote){
-        txt += str.substr(offset, d_quote - offset);
-        offset = d_quote + 1;
-      }
-      else{
-        end = str.size();
-        txt += str.substr(offset, end - offset);
-        offset = end;
-      }
+      case State::DoubleQuote:
+        if(ch == '"'){
+          state = State::Normal;
+        }
+        else if(ch == '\\' && i+1 < str.size()){
+          current = str[++i];
+        }
+        else{
+          current += ch;
+        }
     }
   }
+
+  if(!current.empty())
+    tokens.push_back(current);
+
+  return tokens;
+}
+
+// echo command
+std::string echo(std::string str){
+  std::string txt;
+  std::vector<std::string> vec = parser(str);
+  for(auto& entry : vec)
+    txt += entry;
 
   return txt;
 }
@@ -258,46 +270,9 @@ int OSexec(std::string cmd, std::string args){
   if(cmd_path.empty()) return -1;
 
   offset = 0;
-  std::vector<std::string> c_args;
+  std::vector<std::string> c_args = parser(args);
   if(args.empty())
     c_args.push_back("");
-
-  while (offset < args.size()) {
-    while (offset < args.size() && args[offset] == ' ')
-      offset++;
-
-    if (offset >= args.size())
-      break;
-
-    else if(args[offset] == '"'){
-      size_t end = args.find('"', offset + 1);
-      if (end == std::string::npos){
-        c_args.push_back(args.substr(offset + 1, args.find('\n', offset) - offset));
-        break;
-      }
-
-      c_args.push_back(args.substr(offset + 1, end - offset - 1));
-      offset = end + 1;
-    }
-    else if (args[offset] == '\'') {
-      size_t end = args.find('\'', offset + 1);
-      if (end == std::string::npos){
-        c_args.push_back(args.substr(offset, args.find('\n', offset) - offset));
-        break;
-      }
-
-      c_args.push_back(args.substr(offset + 1, end - offset - 1));
-      offset = end + 1;
-    }
-    else {
-      size_t end = args.find(' ', offset);
-      if (end == std::string::npos)
-          end = args.size();
-
-      c_args.push_back(args.substr(offset, end - offset));
-      offset = end;
-    }
-  }
 
   std::vector<char *> c_argv;
   c_argv.push_back(const_cast<char*>(cmd.c_str()));
