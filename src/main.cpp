@@ -107,6 +107,12 @@ std::vector<std::string> parser(std::string str){
         }
         else if(ch == '\\' &&  i+1 < str.size()){
           current += str[++i];
+          
+          if(str[i] == '\'')
+            state = State::SingleQuote;
+
+          if(str[i] == '"')
+            state = State::DoubleQuote;
         }
         else{
           current += ch;
@@ -116,6 +122,15 @@ std::vector<std::string> parser(std::string str){
       case State::SingleQuote:
         if(ch == '\''){
           state = State::Normal;
+        }
+        else if(ch == '\\' && i+1 < str.size()){
+          current += str[++i];
+
+          if(str[i] == '\'')
+            state = State::Normal;
+
+          if(str[i] == '"')
+            state = State::DoubleQuote;
         }
         else{
           current += ch;
@@ -127,7 +142,13 @@ std::vector<std::string> parser(std::string str){
           state = State::Normal;
         }
         else if(ch == '\\' && i+1 < str.size()){
-          current = str[++i];
+          current += str[++i];
+
+          if(str[i] == '\'')
+            state = State::SingleQuote;
+
+          if(str[i] == '"')
+            state = State::Normal;
         }
         else{
           current += ch;
