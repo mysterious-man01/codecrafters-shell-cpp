@@ -84,39 +84,82 @@ int main() {
 }
 
 std::vector<std::string> parser(std::string str){
-  std::vector<std::string> words;
-  std::string word;
+  State state = State::Normal;
+  std::string current;
+  std::vector<std::string> tokens;
+  
+  for(size_t i=0; i < str.size(); i++){
+    char ch = str[i];
 
-  int i = 0;
-  while (i < str.size()) {
-    if (str[i] == '\"') {
-      i++;
-      while (str[i] != '\"') {
-        word += str[i];
-        i++;
-      }
-    } else if (str[i] == '\'') {
-      i++;
-      while (str[i] != '\'') {
-        word += str[i];
-        i++;
-      }
-    } else if (str[i] == ' ' && word.size() > 0) {
-      words.push_back(word);
-      word = "";
-    } else if (str[i] != ' ') {
-      i += str[i] == '\\';
-      word += str[i];
+    switch(state){
+      case State::Normal:
+        if(ch == ' '){
+          if(!current.empty()){
+            tokens.push_back(current);
+            current.clear();
+          }
+        }
+        else if(ch == '\''){
+          state = State::SingleQuote;
+        }
+        else if(ch == '"'){
+          state = State::DoubleQuote;
+        }
+        else if(ch == '\\' &&  i+1 < str.size()){
+          current += str[++i];
+          
+          if(str[i] == '\'')
+            state = State::SingleQuote;
+
+          if(str[i] == '"')
+            state = State::DoubleQuote;
+        }
+        else{
+          current += ch;
+        }
+        break;
+      
+      case State::SingleQuote:
+        if(ch == '\''){
+          state = State::Normal;
+        }
+        else if(ch == '\\' && i+1 < str.size()){
+          current += str[++i];
+
+          if(str[i] == '\'')
+            state = State::Normal;
+
+          if(str[i] == '"')
+            state = State::DoubleQuote;
+        }
+        else{
+          current += ch;
+        }
+        break;
+
+      case State::DoubleQuote:
+        if(ch == '"'){
+          state = State::Normal;
+        }
+        else if(ch == '\\' && i+1 < str.size()){
+          current += str[++i];
+
+          if(str[i] == '\'')
+            state = State::SingleQuote;
+
+          if(str[i] == '"')
+            state = State::Normal;
+        }
+        else{
+          current += ch;
+        }
     }
-
-    i++;
   }
 
-  if (word.size() > 0) {
-    words.push_back(word);
-  }
+  if(!current.empty())
+    tokens.push_back(current);
 
-  return words;
+  return tokens;
 }
 
 // echo command
