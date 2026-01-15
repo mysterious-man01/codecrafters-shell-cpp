@@ -1,320 +1,218 @@
-#include <iostream>
-#include <string>
+#include <cstddef>
 #include <filesystem>
-#include <unistd.h>
+#include <iostream>
+#include <sstream>
+#include <string>
 #include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
-namespace fs = std::filesystem;
+#ifdef _WIN32
+const char os_pathsep = ';';
+#else
+const char os_pathsep = ':';
+#endif
 
-std::string echo(std::string str);
+enum class CommandType { exit, echo, type, pwd, cd, unknown };
 
-std::string type(std::string str);
+CommandType get_command_type(const std::string &cmd) {
+  if (cmd == "exit") {
+    return CommandType::exit;
+  } else if (cmd == "echo") {
+    return CommandType::echo;
+  } else if (cmd == "type") {
+    return CommandType::type;
+  } else if (cmd == "pwd") {
+    return CommandType::pwd;
+  } else if (cmd == "cd") {
+    return CommandType::cd;
+  } else {
+    return CommandType::unknown;
+  }
+}
 
-std::string pwd();
+std::string trim(const std::string &line) {
+  const char *WHITESPACE = " \t\v\r\n";
+  std::size_t start = line.find_first_not_of(WHITESPACE);
+  std::size_t end = line.find_last_not_of(WHITESPACE);
+  return start == end ? std::string() : line.substr(start, end - start + 1);
+}
 
-void cd(std::string path);
+std::vector<std::string> split_by_words(const std::string &text) {
+  std::vector<std::string> words;
+  std::string word;
 
-int OSexec(std::string cmd, std::string args);
+  int i = 0;
+  while (i < text.size()) {
+    if (text[i] == '\"') {
+      i++;
+      while (text[i] != '\"') {
+        word += text[i];
+        i++;
+      }
+    } else if (text[i] == '\'') {
+      i++;
+      while (text[i] != '\'') {
+        word += text[i];
+        i++;
+      }
+    } else if (text[i] == ' ' && word.size() > 0) {
+      words.push_back(word);
+      word = "";
+    } else if (text[i] != ' ') {
+      i += text[i] == '\\';
+      word += text[i];
+    }
 
-const std::string PATH = std::getenv("PATH");
-std::string previous_path;
+    i++;
+  }
 
-enum class State {
-  Normal,
-  SingleQuote,
-  DoubleQuote
-};
+  if (word.size() > 0) {
+    words.push_back(word);
+  }
 
+  return words;
+}
+
+std::filesystem::path find_executable(std::string &cmd) {
+  std::filesystem::path found;
+
+  const char *ENV_PATH = std::getenv("PATH");
+  std::stringstream ss(ENV_PATH);
+
+  for (std::string line; std::getline(ss, line, os_pathsep);) {
+    std::filesystem::path cur_path(line);
+    cur_path /= cmd;
+
+    if (access(cur_path.c_str(), X_OK) == 0) {
+      found = cur_path;
+      break;
+    }
+  }
+
+  return found;
+}
+
+void execute_external(std::vector<std::string> args,
+                      std::filesystem::path &path) {
+  if (args.empty()) {
+    return;
+  }
+
+  std::vector<char *> c_args;
+  for (std::string &arg : args) {
+    c_args.push_back(arg.data());
+  }
+  c_args.push_back(nullptr);
+
+  if (!fork()) {
+    execv(path.c_str(), c_args.data());
+    exit(0);
+  } else {
+    wait(NULL);
+  }
+}
+
+void type(std::vector<std::string> args) {
+  for (std::string cmd : args) {
+    CommandType cmd_type = get_command_type(cmd);
+
+    if (cmd_type != CommandType::unknown) {
+      std::cout << cmd << " is a shell builtin\n";
+      continue;
+    }
+
+    std::filesystem::path path = find_executable(cmd);
+
+    if (path.empty()) {
+      std::cout << cmd << ": not found\n";
+    } else {
+      std::cout << cmd << " is " << path.string() << "\n";
+    }
+  }
+}
+
+void cd(std::vector<std::string> args) {
+  std::filesystem::path path;
+
+  if (args.size() <= 1 || args[1] == "~") {
+    const char *HOME = std::getenv("HOME");
+    path = HOME;
+  } else {
+    path = args[1];
+  }
+
+  if (std::filesystem::exists(path)) {
+    std::filesystem::current_path(path);
+  } else {
+    std::cout << "cd: " << path.string() << ": No such file or directory\n";
+  }
+}
+
+void execute(std::vector<std::string> args) {
+  // C++ doesn't allow switch statements on strings, so use an Enum
+  std::string cmd = args[0];
+
+  switch (get_command_type(cmd)) {
+  case CommandType::exit: {
+    // TODO: account for params in exit; return too many params if this occurs
+    std::exit(0);
+    break;
+  }
+
+  case CommandType::echo: {
+    std::string output;
+
+    for (int i = 1; i < args.size(); i++) {
+      output += args[i] + " ";
+    }
+
+    std::cout << output << "\n";
+    break;
+  }
+
+  case CommandType::type: {
+    args.erase(args.begin());
+    type(args);
+    break;
+  }
+
+  case CommandType::pwd: {
+    std::cout << std::filesystem::current_path().string() << "\n";
+    break;
+  }
+
+  case CommandType::cd: {
+    cd(args);
+    break;
+  }
+
+  case CommandType::unknown: {
+    std::filesystem::path path = find_executable(cmd);
+
+    if (path.empty()) {
+      std::cout << cmd << ": command not found" << "\n";
+    } else {
+      execute_external(args, path);
+    }
+  }
+  }
+}
 
 int main() {
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
-  std::string prompt;
-  std::string command;
-
-  size_t end_cmd_pos;
-
-  // Shell REPL loop
-  do{
+  while (true) {
     std::cout << "$ ";
 
-    std::getline(std::cin, prompt);
-    
-    end_cmd_pos = prompt.find(' ', 0);
-    command = prompt.substr(0, end_cmd_pos);
+    std::string input;
+    std::getline(std::cin, input);
 
-    if(command.empty()) continue;
-
-    // Exits shell
-    if(command == "exit"){
-      return 0;
-    }
-    
-    // Call command echo
-    else if(command == "echo"){
-      std::cout << echo(prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos))) << '\n';
-    }
-
-    // Call command type
-    else if(command == "type"){
-      std::cout << type(prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos))) << '\n';
-    }
-
-    // Call command pwd
-    else if(command == "pwd"){
-      std::cout << pwd() << std::endl;
-    }
-
-    else if(command == "cd"){
-      cd(prompt.substr(end_cmd_pos + 1, (prompt.find('\n') - end_cmd_pos)));
-    }
-
-    else{
-      std::string args = prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos));
-
-      if(OSexec(command, args))
-        std::cout << command << ": command not found" << "\n";
-    }
-  } while(true);
-
-  return 0;
-}
-
-std::vector<std::string> parser(std::string str){
-  State state = State::Normal;
-  std::string current;
-  std::vector<std::string> tokens;
-  
-  for(size_t i=0; i < str.size(); i++){
-    char ch = str[i];
-
-    switch(state){
-      case State::Normal:
-        if(ch == ' '){
-          if(!current.empty()){
-            tokens.push_back(current);
-            current.clear();
-          }
-        }
-        else if(ch == '\''){
-          state = State::SingleQuote;
-        }
-        else if(ch == '"'){
-          state = State::DoubleQuote;
-        }
-        else if(ch == '\\' &&  i+1 < str.size()){
-          current += str[++i];
-          
-          if(str[i] == '\'')
-            state = State::SingleQuote;
-
-          if(str[i] == '"')
-            state = State::DoubleQuote;
-        }
-        else{
-          current += ch;
-        }
-        break;
-      
-      case State::SingleQuote:
-        if(ch == '\''){
-          state = State::Normal;
-        }
-        else if(ch == '\\' && i+1 < str.size()){
-          current += str[++i];
-
-          if(str[i] == '\'')
-            state = State::Normal;
-
-          if(str[i] == '"')
-            state = State::DoubleQuote;
-        }
-        else{
-          current += ch;
-        }
-        break;
-
-      case State::DoubleQuote:
-        if(ch == '"'){
-          state = State::Normal;
-        }
-        else if(ch == '\\' && i+1 < str.size()){
-          current += str[++i];
-
-          if(str[i] == '\'')
-            state = State::SingleQuote;
-
-          if(str[i] == '"')
-            state = State::Normal;
-        }
-        else{
-          current += ch;
-        }
+    std::vector<std::string> args = split_by_words(input);
+    if (!args.empty()) {
+      execute(args);
     }
   }
-
-  if(!current.empty())
-    tokens.push_back(current);
-
-  return tokens;
-}
-
-// echo command
-std::string echo(std::string str){
-  std::string txt;
-  std::vector<std::string> vec = parser(str);
-  for(auto& entry : vec)
-    txt += entry;
-
-  return txt;
-}
-
-std::string pwd(){
-  return fs::current_path().string();
-}
-
-void cd(std::string path){
-  if(path == "-"){
-    path = previous_path.empty() ? pwd() : previous_path;
-    previous_path = pwd();
-  }
-
-  if(path == "~"){
-    path = std::getenv("HOME");
-  }
-  
-  previous_path = pwd();
-  
-  if(chdir(path.c_str()) != 0){
-    std::cout << "cd: " << path << ": No such file or directory" << std::endl;
-  }
-}
-
-// type command
-std::string type(std::string str){
-  std::string cmd;
-  size_t end_cmd_pos;
-  
-  end_cmd_pos = str.find(' ', 0);
-  if(end_cmd_pos != str.npos){
-    cmd = str.substr(0, end_cmd_pos);
-  }
-  else cmd = str;
-
-  if(cmd.empty()) return "";
-
-  if(cmd == "exit" || cmd == "echo" 
-    || cmd == "type" || cmd == "pwd" || cmd == "cd")
-    return cmd + " is a shell builtin";
-  
-  size_t offset = 0, temp; 
-  const size_t npos = PATH.npos;
-  std::string path_dir;
-  
-  while(offset < PATH.size()){
-    temp = PATH.find(':', offset);
-    if(temp == std::string::npos){
-      path_dir = PATH.substr(offset, PATH.find('\n', offset) - offset);
-      break;
-    }
-
-    path_dir = PATH.substr(offset, temp - offset);
-    offset = temp + 1;
-
-    if(path_dir.empty()) continue;
-
-    if(fs::exists(path_dir)){
-      try{
-        for(const auto& entry : fs::directory_iterator(path_dir)){
-          if(cmd == entry.path().filename() && fs::is_regular_file(entry)){
-            fs::perms perms = fs::status(entry).permissions();
-
-            if((perms & fs::perms::owner_exec) != fs::perms::none || 
-               (perms & fs::perms::group_exec) != fs::perms::none || 
-               (perms & fs::perms::others_exec) != fs::perms::none)
-              return cmd + " is " + entry.path().string();
-          }
-        }
-      } catch(const fs::filesystem_error& e){
-        std::cerr << "Error accessing directory: " << e.what() << std::endl;
-      }
-    }
-  }
-  
-  return cmd + ": not found";
-}
-
-// External command executor
-int OSexec(std::string cmd, std::string args){
-  if(cmd.empty()) return -1;
-
-  size_t offset = 0, temp;
-  std::string path_dir;
-  std::string cmd_path;
-
-  while(offset < PATH.size()){
-    temp = PATH.find(':', offset);
-    if(temp == std::string::npos){
-      path_dir = PATH.substr(offset, PATH.find('\n', offset) - offset);
-      break;
-    }
-
-    path_dir = PATH.substr(offset, temp - offset);
-    offset = temp + 1;
-
-    if(path_dir.empty()) continue;
-
-    if(fs::exists(path_dir)){
-      try{
-        for(const auto& entry : fs::directory_iterator(path_dir)){
-          if(cmd == entry.path().filename() && fs::is_regular_file(entry)){
-            fs::perms perms = fs::status(entry).permissions();
-
-            if((perms & fs::perms::owner_exec) != fs::perms::none || 
-               (perms & fs::perms::group_exec) != fs::perms::none || 
-               (perms & fs::perms::others_exec) != fs::perms::none)
-            {
-              cmd_path = entry.path();
-              break;
-            }
-          }
-        }
-      } catch(fs::filesystem_error& e){
-        std::cerr << "Error accessing directory: " << e.what() << std::endl;
-      }
-    }
-  }
-
-  if(cmd_path.empty()) return -1;
-
-  offset = 0;
-  std::vector<std::string> c_args = parser(args);
-  if(args.empty())
-    c_args.push_back("");
-
-  std::vector<char *> c_argv;
-  c_argv.push_back(const_cast<char*>(cmd.c_str()));
-
-  for(auto& i : c_args){
-    if(i != "")
-      c_argv.push_back(i.data());
-  }
-
-  c_argv.push_back(nullptr);
-
-  pid_t pid = fork();
-
-  if(pid == 0){
-    execvp(cmd.c_str(), c_argv.data());
-    perror("execvp");
-    return -1;
-  }
-  else{
-    waitpid(pid, nullptr, 0);
-  }
-
-  return 0;
 }
