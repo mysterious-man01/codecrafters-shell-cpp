@@ -116,6 +116,9 @@ std::vector<std::string> parser(std::string str){
         if(ch == '\''){
           state = State::Normal;
         }
+        else if(ch == '\\' &&  i+1 < str.size()){
+          current += str[++i];
+        }
         else{
           current += ch;
         }
@@ -124,6 +127,9 @@ std::vector<std::string> parser(std::string str){
       case State::DoubleQuote:
         if(ch == '"'){
           state = State::Normal;
+        }
+        else if(ch == '\\' &&  i+1 < str.size()){
+          current += str[++i];
         }
         else{
           current += ch;
