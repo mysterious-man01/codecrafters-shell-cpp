@@ -7,15 +7,17 @@
 
 namespace fs = std::filesystem;
 
-std::string echo(std::string str);
+std::vector<std::string> parser(std::string str);
 
-std::string type(std::string str);
+std::string echo(std::vector<std::string> str);
+
+std::string type(std::vector<std::string> str);
 
 std::string pwd();
 
-void cd(std::string path);
+void cd(std::vector<std::string> path);
 
-int OSexec(std::string cmd, std::string args);
+int OSexec(std::vector<std::string> cmd);
 
 const std::string PATH = std::getenv("PATH");
 std::string previous_path;
@@ -41,41 +43,38 @@ int main() {
   do{
     std::cout << "$ ";
     std::getline(std::cin, prompt);
-    
-    end_cmd_pos = prompt.find(' ', 0);
-    command = prompt.substr(0, end_cmd_pos);
+
+    std::vector<std::string> command = parser(prompt);
 
     if(command.empty()) continue;
 
     // Exits shell
-    if(command == "exit"){
+    if(command[0] == "exit"){
       return 0;
     }
     
     // Call command echo
-    else if(command == "echo"){
-      std::cout << echo(prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos))) << '\n';
+    else if(command[0] == "echo"){
+      std::cout << echo(command) << '\n';
     }
 
     // Call command type
-    else if(command == "type"){
-      std::cout << type(prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos))) << '\n';
+    else if(command[0] == "type"){
+      std::cout << type(command) << '\n';
     }
 
     // Call command pwd
-    else if(command == "pwd"){
+    else if(command[0] == "pwd"){
       std::cout << pwd() << std::endl;
     }
 
-    else if(command == "cd"){
-      cd(prompt.substr(end_cmd_pos + 1, (prompt.find('\n') - end_cmd_pos)));
+    else if(command[0] == "cd"){
+      cd(command);
     }
 
     else{
-      std::string args = prompt.substr(end_cmd_pos + 1, (prompt.find('\n', 0) - end_cmd_pos));
-
-      if(OSexec(command, args))
-        std::cout << command << ": command not found" << "\n";
+      if(OSexec(command))
+        std::cout << command[0] << ": command not found" << "\n";
     }
   } while(true);
 
@@ -144,11 +143,14 @@ std::vector<std::string> parser(std::string str){
 }
 
 // echo command
-std::string echo(std::string str){
+std::string echo(std::vector<std::string> str){
   std::string txt;
-  std::vector<std::string> vec = parser(str);
-  for(auto& entry : vec)
-    txt += entry + " ";
+
+  if(str.size() > 1){
+    for(int i=1; i<str.size(); i++){
+      txt += str[i] + " ";
+    }
+  }
 
   return txt;
 }
@@ -157,35 +159,34 @@ std::string pwd(){
   return fs::current_path().string();
 }
 
-void cd(std::string path){
-  if(path == "-"){
-    path = previous_path.empty() ? pwd() : previous_path;
+void cd(std::vector<std::string> path){
+  if(path.size() == 1)
+    path.push_back("");
+
+  if(path[1] == "-"){
+    path[1] = previous_path.empty() ? pwd() : previous_path;
     previous_path = pwd();
   }
 
-  if(path == "~"){
-    path = std::getenv("HOME");
+  if(path[1] == "~"){
+    path[1] = std::getenv("HOME");
   }
   
   previous_path = pwd();
   
-  if(chdir(path.c_str()) != 0){
-    std::cout << "cd: " << path << ": No such file or directory" << std::endl;
+  if(chdir(path[1].c_str()) != 0){
+    std::cout << "cd: " << path[1] << ": No such file or directory" << std::endl;
   }
 }
 
 // type command
-std::string type(std::string str){
-  std::string cmd;
-  size_t end_cmd_pos;
+std::string type(std::vector<std::string> str){
+  if(str.size() == 1)
+    str.push_back("");
   
-  end_cmd_pos = str.find(' ', 0);
-  if(end_cmd_pos != str.npos){
-    cmd = str.substr(0, end_cmd_pos);
-  }
-  else cmd = str;
+  std::string cmd = str[1];
 
-  if(cmd.empty()) return "";
+  if(cmd == "") return "";
 
   if(cmd == "exit" || cmd == "echo" 
     || cmd == "type" || cmd == "pwd" || cmd == "cd")
@@ -229,7 +230,7 @@ std::string type(std::string str){
 }
 
 // External command executor
-int OSexec(std::string cmd, std::string args){
+int OSexec(std::vector<std::string> cmd){
   if(cmd.empty()) return -1;
 
   size_t offset = 0, temp;
@@ -251,7 +252,7 @@ int OSexec(std::string cmd, std::string args){
     if(fs::exists(path_dir)){
       try{
         for(const auto& entry : fs::directory_iterator(path_dir)){
-          if(cmd == entry.path().filename() && fs::is_regular_file(entry)){
+          if(cmd[0] == entry.path().filename() && fs::is_regular_file(entry)){
             fs::perms perms = fs::status(entry).permissions();
 
             if((perms & fs::perms::owner_exec) != fs::perms::none || 
@@ -271,24 +272,15 @@ int OSexec(std::string cmd, std::string args){
 
   if(cmd_path.empty()) return -1;
 
-  std::vector<std::string> c_args = parser(args);
-  if(args.empty())
-    c_args.push_back("");
-
   std::vector<char *> c_argv;
-  c_argv.push_back(const_cast<char*>(cmd.c_str()));
-
-  for(auto& i : c_args){
-    if(i != "")
-      c_argv.push_back(i.data());
+  for(auto& i : cmd){
+    c_argv.push_back(i.data());
   }
-
   c_argv.push_back(nullptr);
 
   pid_t pid = fork();
-
   if(pid == 0){
-    execvp(cmd.c_str(), c_argv.data());
+    execvp(cmd[0].c_str(), c_argv.data());
     perror("execvp");
     return -1;
   }
