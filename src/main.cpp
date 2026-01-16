@@ -356,7 +356,7 @@ void write_file(std::string path, std::string msm){
   std::ofstream outFile(path);
 
   if(outFile.is_open()){
-    outFile << msm;
+    outFile << msm << std::endl;
 
     outFile.close();
   } else{
