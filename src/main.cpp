@@ -64,8 +64,13 @@ int main() {
       if(stdout_redirect){
         write_file(command[command.size() - 1], echo(command));
       }
-      else
+      else{
         std::cout << echo(command) << '\n';
+
+        if(stderr_redirect){
+          write_file(command[command.size() - 1], "");
+        }
+      }
     }
 
     // Call command type
