@@ -384,7 +384,12 @@ void write_file(std::string path, std::string msm){
   std::ofstream outFile(path);
 
   if(outFile.is_open()){
-    outFile << msm << std::endl;
+    
+    if(msm == ""){
+      outFile << msm;
+    }
+    else
+      outFile << msm << std::endl;
 
     outFile.close();
   } else{
