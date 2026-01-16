@@ -350,15 +350,12 @@ int OSexec(std::vector<std::string> cmd){
       }
 
       if(stdout_redirect && !stderr_redirect){
-        std::cout << "out redirect\n";
         dup2(fd, STDOUT_FILENO);
       }
       else if(!stdout_redirect && stderr_redirect){
-        std::cout << "err redirect\n";
         dup2(fd, STDERR_FILENO);
       }
       else{
-        std::cout << "both redirect\n";
         dup2(fd, STDOUT_FILENO);
         dup2(fd, STDERR_FILENO);
       }
