@@ -1,9 +1,11 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <filesystem>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <vector>
+#include <fcntl.h>
 
 namespace fs = std::filesystem;
 
@@ -19,8 +21,11 @@ void cd(std::vector<std::string> path);
 
 int OSexec(std::vector<std::string> cmd);
 
+void write_file(std::string path, std::string msm);
+
 const std::string PATH = std::getenv("PATH");
 std::string previous_path;
+bool stdout_redirect = false;
 
 enum class State {
   Normal,
@@ -55,17 +60,29 @@ int main() {
     
     // Call command echo
     else if(command[0] == "echo"){
-      std::cout << echo(command) << '\n';
+      if(stdout_redirect){
+        write_file(command[command.size() - 1], echo(command));
+      }
+      else
+        std::cout << echo(command) << '\n';
     }
 
     // Call command type
     else if(command[0] == "type"){
-      std::cout << type(command) << '\n';
+      if(stdout_redirect){
+        write_file(command[command.size() - 1], type(command));
+      }
+      else
+        std::cout << type(command) << '\n';
     }
 
     // Call command pwd
     else if(command[0] == "pwd"){
-      std::cout << pwd() << std::endl;
+      if(stdout_redirect){
+        write_file(command[command.size() - 1], pwd());
+      }
+      else
+        std::cout << pwd() << std::endl;
     }
 
     else if(command[0] == "cd"){
@@ -76,6 +93,8 @@ int main() {
       if(OSexec(command))
         std::cout << command[0] << ": command not found" << "\n";
     }
+
+    stdout_redirect = false;
   } while(true);
 
   return 0;
@@ -107,6 +126,9 @@ std::vector<std::string> parser(std::string str){
           current += str[++i];
         }
         else{
+          if(ch == '>' || (i+1 < str.size() && ch == '1' && str[i+1] == '>'))
+            stdout_redirect = true;
+          
           current += ch;
         }
         break;
@@ -147,7 +169,19 @@ std::string echo(std::vector<std::string> str){
   std::string txt;
 
   if(str.size() > 1){
-    for(int i=1; i<str.size(); i++){
+    bool stop = false;
+    for(int i=1; i < str.size(); i++){
+      std::string& token = str[i];
+      for(int j=0; j < token.size(); j++){
+        if(token[j] == '>' || (j+1 < token.size() && token[j] == '1' && token[j+1] == '>')){
+          stop = true;
+          break;
+        }
+      }
+
+      if(stop)
+        break;
+      
       txt += str[i] + " ";
     }
   }
@@ -272,14 +306,40 @@ int OSexec(std::vector<std::string> cmd){
 
   if(cmd_path.empty()) return -1;
 
+  bool stop = false;
   std::vector<char *> c_argv;
-  for(auto& i : cmd){
-    c_argv.push_back(i.data());
+
+  for(std::string& token : cmd){
+    for(int i=0; i < token.size(); i++){
+      if(token[i] == '>' || (i+1 < token.size() && token[i] == '1' && token[i+1] == '>')){
+        stop = true;
+        break;
+      }
+    }
+
+    if(stop)
+      break;
+
+    c_argv.push_back(token.data());
   }
   c_argv.push_back(nullptr);
 
   pid_t pid = fork();
   if(pid == 0){
+    if(stdout_redirect){
+      int fd = open(cmd[cmd.size()-1].c_str(),
+                    O_WRONLY | O_CREAT | O_TRUNC,
+                    0644);
+
+      if (fd < 0) {
+        perror("open");
+        _exit(1);
+      }
+
+      dup2(fd, STDOUT_FILENO);
+      close(fd);
+    }
+    
     execvp(cmd[0].c_str(), c_argv.data());
     perror("execvp");
     return -1;
@@ -289,4 +349,17 @@ int OSexec(std::vector<std::string> cmd){
   }
 
   return 0;
+}
+
+// Write file function
+void write_file(std::string path, std::string msm){
+  std::ofstream outFile(path);
+
+  if(outFile.is_open()){
+    outFile << msm;
+
+    outFile.close();
+  } else{
+    std::cerr << "Error: Unable to open the file: " << path << std::endl;
+  }
 }
