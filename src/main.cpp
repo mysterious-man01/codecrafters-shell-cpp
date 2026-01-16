@@ -26,6 +26,7 @@ void write_file(std::string path, std::string msm);
 const std::string PATH = std::getenv("PATH");
 std::string previous_path;
 bool stdout_redirect = false;
+bool stderr_redirect = false;
 
 enum class State {
   Normal,
@@ -95,6 +96,7 @@ int main() {
     }
 
     stdout_redirect = false;
+    stderr_redirect = false;
   } while(true);
 
   return 0;
@@ -126,8 +128,19 @@ std::vector<std::string> parser(std::string str){
           current += str[++i];
         }
         else{
-          if(ch == '>' || (i+1 < str.size() && ch == '1' && str[i+1] == '>'))
-            stdout_redirect = true;
+          if(i+1 <str.size() && i-1 > 0){
+            if(ch == '2' && str[i+1] == '>')
+              stderr_redirect = true;
+
+            if(ch =='&' && str[i+1] == '>'){
+              stdout_redirect = true;
+              stderr_redirect = true;
+            }
+            
+            if((ch == '>' && str[i+1] == ' ' && str[i-1] != '2') || 
+              (ch == '1' && str[i+1] == '>'))
+              stdout_redirect = true;
+          }
           
           current += ch;
         }
@@ -326,7 +339,7 @@ int OSexec(std::vector<std::string> cmd){
 
   pid_t pid = fork();
   if(pid == 0){
-    if(stdout_redirect){
+    if(stdout_redirect || stderr_redirect){
       int fd = open(cmd[cmd.size()-1].c_str(),
                     O_WRONLY | O_CREAT | O_TRUNC,
                     0644);
@@ -336,7 +349,20 @@ int OSexec(std::vector<std::string> cmd){
         _exit(1);
       }
 
-      dup2(fd, STDOUT_FILENO);
+      if(stdout_redirect && !stderr_redirect){
+        std::cout << "out redirect\n";
+        dup2(fd, STDOUT_FILENO);
+      }
+      else if(!stdout_redirect && stderr_redirect){
+        std::cout << "err redirect\n";
+        dup2(fd, STDERR_FILENO);
+      }
+      else{
+        std::cout << "both redirect\n";
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+      }
+      
       close(fd);
     }
     
