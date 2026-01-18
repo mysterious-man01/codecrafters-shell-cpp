@@ -428,7 +428,9 @@ void write_file(std::string path, std::string msm, bool append){
   if(fd < 0)
     std::cerr << "Error: Unable to open the file: " << path << std::endl;
 
-  if(write(fd, (msm + "\n").data(), msm.size() + 1) < 0)
+  const std::string txt = msm + msm == "" ? "" : "\n";
+
+  if(write(fd, txt.data(), msm.size() + 1) < 0)
     std::cerr << "Error: Unable to write on file" << std::endl;
   
   close(fd);
