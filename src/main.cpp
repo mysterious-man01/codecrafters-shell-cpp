@@ -152,7 +152,8 @@ std::vector<std::string> parser(std::string str){
               stderr_redirect = true;
             }
             
-            if((ch == '>' && str[i-1] == ' ' && str[i+1] == ' ') || 
+            if((ch == '>' && str[i-1] == ' ' && 
+              (str[i+1] == ' ' || str[i+1] == '>')) || 
               (ch == '1' && str[i+1] == '>' && str[i-1]))
               stdout_redirect = true;
 
