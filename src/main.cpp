@@ -21,12 +21,13 @@ void cd(std::vector<std::string> path);
 
 int OSexec(std::vector<std::string> cmd);
 
-void write_file(std::string path, std::string msm);
+void write_file(std::string path, std::string msm, bool append);
 
 const std::string PATH = std::getenv("PATH");
 std::string previous_path;
 bool stdout_redirect = false;
 bool stderr_redirect = false;
+bool append = false;
 
 enum class State {
   Normal,
@@ -62,13 +63,13 @@ int main() {
     // Call command echo
     else if(command[0] == "echo"){
       if(stdout_redirect){
-        write_file(command[command.size() - 1], echo(command));
+        write_file(command[command.size() - 1], echo(command), append);
       }
       else{
         std::cout << echo(command) << '\n';
 
         if(stderr_redirect){
-          write_file(command[command.size() - 1], "");
+          write_file(command[command.size() - 1], "", append);
         }
       }
     }
@@ -76,19 +77,27 @@ int main() {
     // Call command type
     else if(command[0] == "type"){
       if(stdout_redirect){
-        write_file(command[command.size() - 1], type(command));
+        write_file(command[command.size() - 1], type(command), append);
       }
       else
         std::cout << type(command) << '\n';
+
+        if(stderr_redirect){
+          write_file(command[command.size() - 1], "", append);
+        }
     }
 
     // Call command pwd
     else if(command[0] == "pwd"){
       if(stdout_redirect){
-        write_file(command[command.size() - 1], pwd());
+        write_file(command[command.size() - 1], pwd(), append);
       }
       else
         std::cout << pwd() << std::endl;
+
+        if(stderr_redirect){
+          write_file(command[command.size() - 1], "", append);
+        }
     }
 
     else if(command[0] == "cd"){
@@ -102,6 +111,7 @@ int main() {
 
     stdout_redirect = false;
     stderr_redirect = false;
+    append = false;
   } while(true);
 
   return 0;
@@ -142,9 +152,12 @@ std::vector<std::string> parser(std::string str){
               stderr_redirect = true;
             }
             
-            if((ch == '>' && str[i+1] == ' ' && str[i-1] != '2') || 
-              (ch == '1' && str[i+1] == '>'))
+            if((ch == '>' && str[i-1] == ' ' && str[i+1] == ' ') || 
+              (ch == '1' && str[i+1] == '>' && str[i-1]))
               stdout_redirect = true;
+
+            if(ch == '>' && str[i+1] == '>')
+              append = true;
           }
           
           current += ch;
@@ -191,9 +204,12 @@ std::string echo(std::vector<std::string> str){
     for(int i=1; i < str.size(); i++){
       std::string& token = str[i];
       for(int j=0; j < token.size(); j++){
-        if(token[j] == '>' || (j+1 < token.size() && token[j] == '1' && token[j+1] == '>')){
-          stop = true;
-          break;
+        if(j+1 < token.size()){
+          if(token[j] == '>' || token[j] == '1' || 
+            token[j] == '2' || token[j] == '&' && token[j+1] == '>'){
+            stop = true;
+            break;
+          }
         }
       }
 
@@ -345,11 +361,20 @@ int OSexec(std::vector<std::string> cmd){
   pid_t pid = fork();
   if(pid == 0){
     if(stdout_redirect || stderr_redirect){
-      int fd = open(cmd[cmd.size()-1].c_str(),
-                    O_WRONLY | O_CREAT | O_TRUNC,
-                    0644);
+      int fd;
+      if(append){
+        fd = open(cmd[cmd.size()-1].c_str(),
+                  O_WRONLY | O_CREAT | O_APPEND,
+                  0644);
+      }
+      else{
+        fd = open(cmd[cmd.size()-1].c_str(),
+                  O_WRONLY | O_CREAT | O_TRUNC,
+                  0644);
+      }
+      
 
-      if (fd < 0) {
+      if(fd < 0) {
         perror("open");
         _exit(1);
       }
@@ -380,19 +405,39 @@ int OSexec(std::vector<std::string> cmd){
 }
 
 // Write file function
-void write_file(std::string path, std::string msm){
-  std::ofstream outFile(path);
-
-  if(outFile.is_open()){
-    
-    if(msm == ""){
-      outFile << msm;
-    }
-    else
-      outFile << msm << std::endl;
-
-    outFile.close();
-  } else{
-    std::cerr << "Error: Unable to open the file: " << path << std::endl;
+void write_file(std::string path, std::string msm, bool append){
+  int fd;
+  if(append){
+    fd = open(path.c_str(),
+              O_WRONLY | O_CREAT | O_APPEND,
+              0644);
   }
+  else{
+    fd = open(path.c_str(),
+              O_WRONLY | O_CREAT | O_TRUNC,
+              0644);
+  }
+
+  if(fd < 0)
+    std::cerr << "Error: Unable to open the file: " << path << std::endl;
+
+  if(write(fd, (msm + "\n").data(), msm.size() + 1) < 0)
+    std::cerr << "Error: Unable to write on file" << std::endl;
+  
+  close(fd);
+
+  // std::ofstream outFile(path);
+
+  // if(outFile.is_open()){
+    
+  //   if(msm == ""){
+  //     outFile << msm;
+  //   }
+  //   else
+  //     outFile << msm << std::endl;
+
+  //   outFile.close();
+  // } else{
+  //   std::cerr << "Error: Unable to open the file: " << path << std::endl;
+  // }
 }
