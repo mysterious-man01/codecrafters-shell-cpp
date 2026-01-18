@@ -212,6 +212,12 @@ std::string echo(std::vector<std::string> str){
             break;
           }
         }
+        else{
+          if(token[j] == '>'){
+            stop = true;
+            break;
+          }
+        }
       }
 
       if(stop)
