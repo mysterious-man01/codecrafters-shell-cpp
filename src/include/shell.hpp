@@ -1,12 +1,6 @@
 #pragma once
 
-#include <iostream>
-#include <unistd.h>
-#include <termios.h>
-#include <cstring>
-#include <vector>
-
-#include "../shell.cpp"
+#include <string>
 
 // Disable shell mode
 void disable_raw_mode();

@@ -1,4 +1,10 @@
-#include "include/shell.hpp"
+#include "shell.hpp"
+
+#include <iostream>
+#include <unistd.h>
+#include <termios.h>
+#include <cstring>
+#include <vector>
 
 const std::string SIMBOL = "$ ";
 
