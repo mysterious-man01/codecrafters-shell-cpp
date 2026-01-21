@@ -54,13 +54,8 @@ int main() {
     shell(prompt);
 
     disable_raw_mode();
-    std::cout << prompt << std::endl;
 
     std::vector<std::string> command = parser(prompt);
-
-    for(auto& entry : command)
-      std::cout<< entry << std::endl;
-
     if(command.empty()) continue;
 
     // Exits shell
