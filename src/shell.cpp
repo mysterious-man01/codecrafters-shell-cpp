@@ -93,14 +93,15 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
         buffer = matches[0] + " ";
         cursor_pos = matches[0].size() + 1;
     }
-
-    if(matches.size() > 1){
+    else if(matches.size() > 1){
         write(STDOUT_FILENO, "\r\n", 2);
         for(int i=0; i < matches.size(); i++)
             write(STDOUT_FILENO, (matches[i]+" ").c_str(), matches[i].size() + 1);
 
         write(STDOUT_FILENO, "\n", 1);
     }
+    else
+        write(STDOUT_FILENO, "\x07", 1);
 
 }
 
