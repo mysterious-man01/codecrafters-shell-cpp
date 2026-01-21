@@ -1,5 +1,6 @@
+#include "include/shell.hpp"
 #include <iostream>
-#include <fstream>
+//#include <fstream>
 #include <string>
 #include <filesystem>
 #include <unistd.h>
@@ -48,10 +49,17 @@ int main() {
 
   // Shell REPL loop
   do{
-    std::cout << "$ ";
-    std::getline(std::cin, prompt);
+    enable_raw_mode();
+
+    shell(prompt);
+
+    disable_raw_mode();
+    std::cout << prompt << std::endl;
 
     std::vector<std::string> command = parser(prompt);
+
+    for(auto& entry : command)
+      std::cout<< entry << std::endl;
 
     if(command.empty()) continue;
 
@@ -112,7 +120,10 @@ int main() {
     stdout_redirect = false;
     stderr_redirect = false;
     append = false;
+    prompt = "";
   } while(true);
+
+  
 
   return 0;
 }
