@@ -157,7 +157,7 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
     exec_finder(temp, matches);
 
     if(matches.size() == 1){
-        buffer = matches[0] + " ";
+        buffer = matches[0] + "  ";
         cursor_pos = matches[0].size() + 1;
     }
     else if(matches.size() > 1){
