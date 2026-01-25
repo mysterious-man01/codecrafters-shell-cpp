@@ -7,6 +7,7 @@
 #include <vector>
 #include <filesystem>
 #include <unordered_set>
+#include <algorithm>
 
 namespace fs = std::filesystem;
 
@@ -135,7 +136,7 @@ std::vector<std::string> exec_finder(const std::string& prefix,
                 }
             }
         } catch(fs::filesystem_error& e){
-            return matches;
+            continue;
         }
     }
 
@@ -146,7 +147,7 @@ std::vector<std::string> exec_finder(const std::string& prefix,
 // Shell <TAB> function
 void TABcomplete(std::string& buffer, size_t& cursor_pos){
     std::string temp = buffer.substr(0, cursor_pos);
-    std::vector<std::string> builtin_cmd = {"exit", "echo", "cd", "type", "pwd"};
+    const std::vector<std::string> builtin_cmd = {"exit", "echo", "cd", "type", "pwd"};
     std::vector<std::string> matches;
     
     for(int i=0; i < builtin_cmd.size(); i++){
