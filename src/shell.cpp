@@ -5,6 +5,10 @@
 #include <termios.h>
 #include <cstring>
 #include <vector>
+#include <filesystem>
+#include <unordered_set>
+
+namespace fs = std::filesystem;
 
 const std::string SIMBOL = "$ ";
 
@@ -78,6 +82,61 @@ void handle_chars(const char ch, std::string& buffer, size_t& cursor_pos){
     }
 }
 
+std::vector<std::string> exec_finder(const std::string& prefix) {
+    const char* env = std::getenv("PATH");
+    if (!env) return {};
+
+    std::string PATH(env);
+    std::vector<std::string> matches;
+    std::unordered_set<std::string> seen;
+
+    size_t offset = 0;
+
+    while (offset < PATH.size()) {
+        size_t pos = PATH.find(':', offset);
+        std::string path_dir;
+
+        if (pos == std::string::npos) {
+            path_dir = PATH.substr(offset);
+            offset = PATH.size();
+        } else {
+            path_dir = PATH.substr(offset, pos - offset);
+            offset = pos + 1;
+        }
+
+        if (path_dir.empty())
+            continue;
+
+        if (!fs::exists(path_dir))
+            continue;
+
+        try {
+            for (const auto& entry : fs::directory_iterator(path_dir)) {
+                if (!fs::is_regular_file(entry) && !fs::is_symlink(entry))
+                    continue;
+
+                fs::perms perms = fs::status(entry).permissions();
+                if ((perms & fs::perms::owner_exec) == fs::perms::none &&
+                    (perms & fs::perms::group_exec) == fs::perms::none &&
+                    (perms & fs::perms::others_exec) == fs::perms::none)
+                    continue;
+
+                std::string name = entry.path().filename().string();
+
+                if (name.compare(0, prefix.size(), prefix) == 0) {
+                    if (seen.insert(name).second)
+                        matches.push_back(name);
+                }
+            }
+        } catch (fs::filesystem_error& e) {
+            return matches;
+        }
+    }
+
+    return matches;
+}
+
+
 // Shell <TAB> function
 void TABcomplete(std::string& buffer, size_t& cursor_pos){
     std::string temp = buffer.substr(0, cursor_pos);
@@ -88,6 +147,9 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
         if(builtin_cmd[i].compare(0, temp.size(), temp) == 0)
             matches.push_back(builtin_cmd[i]);
     }
+
+    for(auto& entry : exec_finder(temp))
+        matches.push_back(entry);
 
     if(matches.size() == 1){
         buffer = matches[0] + " ";
