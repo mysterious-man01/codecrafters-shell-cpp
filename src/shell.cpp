@@ -13,6 +13,7 @@ namespace fs = std::filesystem;
 const std::string SIMBOL = "$ ";
 
 termios orig_termios;
+bool wasTABed = false;
 
 // Disable shell mode
 void disable_raw_mode(){
@@ -160,6 +161,14 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
         cursor_pos = matches[0].size() + 1;
     }
     else if(matches.size() > 1){
+        if(!wasTABed){
+            wasTABed = true;
+            write(STDOUT_FILENO, "\x07", 1);
+            return;
+        }
+
+        wasTABed = false;
+
         write(STDOUT_FILENO, "\r\n", 2);
         for(int i=0; i < matches.size(); i++)
             write(STDOUT_FILENO, (matches[i]+" ").c_str(), matches[i].size() + 1);
@@ -168,7 +177,6 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
     }
     else
         write(STDOUT_FILENO, "\x07", 1);
-
 }
 
 // Main function for shell
