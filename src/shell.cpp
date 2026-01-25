@@ -82,53 +82,58 @@ void handle_chars(const char ch, std::string& buffer, size_t& cursor_pos){
     }
 }
 
-std::vector<std::string> exec_finder(const std::string& prefix) {
+std::vector<std::string> exec_finder(const std::string& prefix, 
+                                     std::vector<std::string>& matches)
+{
     const char* env = std::getenv("PATH");
-    if (!env) return {};
+    if(!env) return {};
 
     std::string PATH(env);
-    std::vector<std::string> matches;
     std::unordered_set<std::string> seen;
-
     size_t offset = 0;
+    
+    if(!matches.empty()){
+        for(auto& entry : matches)
+            seen.insert(entry);
+    }
 
-    while (offset < PATH.size()) {
+    while(offset < PATH.size()){
         size_t pos = PATH.find(':', offset);
         std::string path_dir;
 
-        if (pos == std::string::npos) {
+        if (pos == std::string::npos){
             path_dir = PATH.substr(offset);
             offset = PATH.size();
-        } else {
+        } else{
             path_dir = PATH.substr(offset, pos - offset);
             offset = pos + 1;
         }
 
-        if (path_dir.empty())
+        if(path_dir.empty())
             continue;
 
-        if (!fs::exists(path_dir))
+        if(!fs::exists(path_dir))
             continue;
 
-        try {
-            for (const auto& entry : fs::directory_iterator(path_dir)) {
-                if (!fs::is_regular_file(entry) && !fs::is_symlink(entry))
+        try{
+            for(const auto& entry : fs::directory_iterator(path_dir)){
+                if(!fs::is_regular_file(entry) && !fs::is_symlink(entry))
                     continue;
 
                 fs::perms perms = fs::status(entry).permissions();
-                if ((perms & fs::perms::owner_exec) == fs::perms::none &&
+                if((perms & fs::perms::owner_exec) == fs::perms::none &&
                     (perms & fs::perms::group_exec) == fs::perms::none &&
                     (perms & fs::perms::others_exec) == fs::perms::none)
                     continue;
 
                 std::string name = entry.path().filename().string();
 
-                if (name.compare(0, prefix.size(), prefix) == 0) {
-                    if (seen.insert(name).second)
+                if(name.compare(0, prefix.size(), prefix) == 0){
+                    if(seen.insert(name).second)
                         matches.push_back(name);
                 }
             }
-        } catch (fs::filesystem_error& e) {
+        } catch(fs::filesystem_error& e){
             return matches;
         }
     }
@@ -148,8 +153,7 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
             matches.push_back(builtin_cmd[i]);
     }
 
-    for(auto& entry : exec_finder(temp))
-        matches.push_back(entry);
+    exec_finder(temp, matches);
 
     if(matches.size() == 1){
         buffer = matches[0] + " ";
