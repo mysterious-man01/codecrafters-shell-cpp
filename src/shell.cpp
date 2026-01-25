@@ -168,6 +168,8 @@ void TABcomplete(std::string& buffer, size_t& cursor_pos){
             return;
         }
 
+        std::sort(matches.begin(), matches.end());
+
         wasTABed = false;
 
         write(STDOUT_FILENO, "\r\n", 2);
