@@ -174,6 +174,7 @@ void longuest_common_prefix(size_t& cursor_pos,
     if(pre.size() > prefix.size()){
         cursor_pos = pre.size();
         buffer = pre;
+        wasTABed = false;
     }
 }
 
