@@ -143,33 +143,67 @@ std::vector<std::string> exec_finder(const std::string& prefix,
     return matches;
 }
 
+void longuest_common_prefix(size_t& cursor_pos,
+                            std::string& buffer,
+                            const std::string& prefix,
+                            const std::vector<std::string>& matches)
+{
+    if(matches.empty()) return;
+
+    std::string pre = prefix;
+    std::string ref = matches[0];
+    
+    for(int j=1; j < matches.size(); j++){
+        for(int k=0; k < ref.size(); k++){
+            if(ref[k] != matches[j][k])
+                break;    
+            
+            if(k > pre.size() - 1){
+                pre += ref[k];
+                continue;
+            }
+
+            if(k == pre.size() - 1){
+                if(pre[k] != ref[k])
+                    pre[k] = ref[k];
+            }
+        }
+
+    }
+
+    if(pre.size() > prefix.size()){
+        cursor_pos = pre.size();
+        buffer = pre;
+    }
+}
 
 // Shell <TAB> function
 void TABcomplete(std::string& buffer, size_t& cursor_pos){
-    std::string temp = buffer.substr(0, cursor_pos);
+    const std::string prefix = buffer.substr(0, cursor_pos);
     const std::vector<std::string> builtin_cmd = {"exit", "echo", "cd", "type", "pwd"};
     std::vector<std::string> matches;
     
     for(int i=0; i < builtin_cmd.size(); i++){
-        if(builtin_cmd[i].compare(0, temp.size(), temp) == 0)
+        if(builtin_cmd[i].compare(0, prefix.size(), prefix) == 0)
             matches.push_back(builtin_cmd[i]);
     }
 
-    exec_finder(temp, matches);
+    exec_finder(prefix, matches);
 
     if(matches.size() == 1){
         buffer = matches[0] + " ";
         cursor_pos = matches[0].size() + 1;
     }
     else if(matches.size() > 1){
+        std::sort(matches.begin(), matches.end());
+
+        longuest_common_prefix(cursor_pos, buffer, prefix, matches);
+        
         if(!wasTABed){
             wasTABed = true;
             write(STDOUT_FILENO, "\x07", 1);
             return;
         }
-
-        std::sort(matches.begin(), matches.end());
-
         wasTABed = false;
 
         write(STDOUT_FILENO, "\r\n", 2);
