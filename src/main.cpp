@@ -11,7 +11,9 @@
 
 namespace fs = std::filesystem;
 
-std::vector<std::string> parser(std::string str);
+void builtin_cmds(const std::vector<std::string>& cmd);
+
+std::vector<std::string> parser(const std::string& str);
 
 std::string echo(std::vector<std::string> str);
 
@@ -25,6 +27,9 @@ int OSexec(std::vector<std::string> cmd);
 
 void write_file(std::string path, std::string msm, bool append);
 
+void build_cmdline(const std::string& cmd_tokens,
+                  std::vector<std::string>& cmdpipe);
+
 const std::string PATH = std::getenv("PATH");
 std::string previous_path;
 bool stdout_redirect = false;
@@ -37,16 +42,13 @@ enum class State {
   DoubleQuote
 };
 
-
 int main() {
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
   std::string prompt;
-  std::string command;
-
-  size_t end_cmd_pos;
+  std::vector<std::string> command;
 
   // Shell REPL loop
   do{
@@ -56,75 +58,126 @@ int main() {
 
     disable_raw_mode();
 
-    std::vector<std::string> command = parser(prompt);
+    build_cmdline(prompt, command);
     if(command.empty()) continue;
 
-    // Exits shell
-    if(command[0] == "exit"){
-      return 0;
-    }
-    
-    // Call command echo
-    else if(command[0] == "echo"){
-      if(stdout_redirect){
-        write_file(command[command.size() - 1], echo(command), append);
-      }
-      else{
-        std::cout << echo(command) << '\n';
+    if(command.size() > 1){
+      int prev_fd = -1;
+      for(size_t i=0; i < command.size(); i++){
+        bool is_last = (i == command.size() - 1);
 
-        if(stderr_redirect){
-          write_file(command[command.size() - 1], "", append);
+        auto cmd = parser(command[i]);
+      
+        int fd[2];
+        if(!is_last){
+          if(pipe(fd) == -1){
+            perror("pipe");
+            break;
+          }
+        }
+      
+        pid_t pid = fork();
+        
+        if(pid == 0){
+          if(prev_fd != -1){
+            dup2(prev_fd, STDIN_FILENO);
+            close(prev_fd);
+          }
+
+          if(!is_last){
+            dup2(fd[1], STDOUT_FILENO);
+            close(fd[0]);
+            close(fd[1]);
+          }
+
+          builtin_cmds(cmd);
+          _exit(0);
+        }
+
+        if(prev_fd != -1)
+          close(prev_fd);
+
+        if(!is_last){
+          close(fd[1]);
+          prev_fd = fd[0];
         }
       }
+
+      while(wait(nullptr) > 0);
+    } else{
+      auto cmd = parser(command[0]);
+      builtin_cmds(cmd);
     }
 
-    // Call command type
-    else if(command[0] == "type"){
-      if(stdout_redirect){
-        write_file(command[command.size() - 1], type(command), append);
-      }
-      else
-        std::cout << type(command) << '\n';
-
-        if(stderr_redirect){
-          write_file(command[command.size() - 1], "", append);
-        }
-    }
-
-    // Call command pwd
-    else if(command[0] == "pwd"){
-      if(stdout_redirect){
-        write_file(command[command.size() - 1], pwd(), append);
-      }
-      else
-        std::cout << pwd() << std::endl;
-
-        if(stderr_redirect){
-          write_file(command[command.size() - 1], "", append);
-        }
-    }
-
-    else if(command[0] == "cd"){
-      cd(command);
-    }
-
-    else{
-      if(OSexec(command))
-        std::cout << command[0] << ": command not found" << "\n";
-    }
-
-    stdout_redirect = false;
-    stderr_redirect = false;
-    append = false;
     prompt = "";
+    command.clear();
   } while(true);
-
-  
 
   return 0;
 }
 
-std::vector<std::string> parser(std::string str){
+void builtin_cmds(const std::vector<std::string>& cmd){
+  // Exits shell
+  if(cmd[0] == "exit"){
+    exit(0);
+  }
+  
+  // Call command echo
+  else if(cmd[0] == "echo"){
+    if(stdout_redirect){
+      
+      write_file(cmd[cmd.size() - 1], echo(cmd), append);
+    }
+    else{
+      std::cout << echo(cmd) << '\n';
+
+      if(stderr_redirect){
+        write_file(cmd[cmd.size() - 1], "", append);
+      }
+    }
+  }
+
+  // Call command type
+  else if(cmd[0] == "type"){
+    if(stdout_redirect){
+      write_file(cmd[cmd.size() - 1], type(cmd), append);
+    }
+    else
+      std::cout << type(cmd) << '\n';
+
+      if(stderr_redirect){
+        write_file(cmd[cmd.size() - 1], "", append);
+      }
+  }
+
+  // Call command pwd
+  else if(cmd[0] == "pwd"){
+    if(stdout_redirect){
+      write_file(cmd[cmd.size() - 1], pwd(), append);
+    }
+    else
+      std::cout << pwd() << std::endl;
+
+      if(stderr_redirect){
+        write_file(cmd[cmd.size() - 1], "", append);
+      }
+  }
+
+  else if(cmd[0] == "cd"){
+    cd(cmd);
+  }
+
+  else{
+    if(OSexec(cmd))
+      std::cout << cmd[0] << ": command not found" << "\n";
+  }
+
+  stdout_redirect = false;
+  stderr_redirect = false;
+  append = false;
+}
+
+std::vector<std::string> parser(const std::string& str){
   State state = State::Normal;
   std::string current;
   std::vector<std::string> tokens;
@@ -145,6 +198,12 @@ std::vector<std::string> parser(std::string str){
         }
         else if(ch == '"'){
           state = State::DoubleQuote;
+        }
+        else if(ch == '|' && i+1 < str.size() && str[i+1] != '|'){
+          if(!current.empty()){
+            tokens.push_back(current);
+            current.clear();
+          }
         }
         else if(ch == '\\' &&  i+1 < str.size()){
           current += str[++i];
@@ -386,7 +445,6 @@ int OSexec(std::vector<std::string> cmd){
                   O_WRONLY | O_CREAT | O_TRUNC,
                   0644);
       }
-      
 
       if(fd < 0) {
         perror("open");
@@ -409,7 +467,7 @@ int OSexec(std::vector<std::string> cmd){
     
     execvp(cmd[0].c_str(), c_argv.data());
     perror("execvp");
-    return -1;
+    _exit(1);
   }
   else{
     waitpid(pid, nullptr, 0);
@@ -456,4 +514,21 @@ void write_file(std::string path, std::string msm, bool append){
   // } else{
   //   std::cerr << "Error: Unable to open the file: " << path << std::endl;
   // }
+}
+
+// Identify and split piped command
+void build_cmdline(const std::string& cmd_tokens,
+                  std::vector<std::string>& cmdpipe)
+{
+  size_t offset = 0;
+  while(offset < cmd_tokens.size()){
+    size_t pos = cmd_tokens.find('|', offset);
+    if(pos == std::string::npos){
+      cmdpipe.push_back(cmd_tokens.substr(offset));
+      break;
+    }
+
+    cmdpipe.push_back(cmd_tokens.substr(offset, pos - offset));
+    offset = pos + 1;
+  }
 }
