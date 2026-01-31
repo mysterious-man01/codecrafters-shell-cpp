@@ -25,7 +25,7 @@ void cd(std::vector<std::string> path);
 
 int OSexec(std::vector<std::string> cmd);
 
-std::string history();
+std::string history(std::vector<std::string> n);
 
 void write_file(std::string path, std::string msm, bool append);
 
@@ -176,7 +176,7 @@ void builtin_cmds(const std::vector<std::string>& cmd){
 
   // Shows all past commands typed on shell
   else if(cmd[0] == "history"){
-    std::cout << history() << std::endl;
+    std::cout << history(cmd) << std::endl;
   }
 
   // Calls external programs
@@ -499,12 +499,22 @@ int OSexec(std::vector<std::string> cmd){
 }
 
 // History builtin command
-std::string history(){
+std::string history(std::vector<std::string> n){
   if(his.empty())
     return "";
 
+  int i;
+  try{
+    if(n.size() == 1){
+      i = 0;
+    } else
+      i = his.size() - std::atoi(n[1].c_str());
+  } catch(const std::bad_cast& e){
+    i = 0;
+  }
+
   std::string ftxt = "";
-  for(int i=0; i < his.size(); i++){
+  for(; i < his.size(); i++){
     if(!ftxt.empty())
       ftxt += "\n";
 
