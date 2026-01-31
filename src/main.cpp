@@ -293,6 +293,9 @@ std::string echo(std::vector<std::string> str){
     }
   }
 
+  if(!txt.empty())
+    txt.pop_back();
+
   return txt;
 }
 
