@@ -25,13 +25,17 @@ void cd(std::vector<std::string> path);
 
 int OSexec(std::vector<std::string> cmd);
 
+std::string history();
+
 void write_file(std::string path, std::string msm, bool append);
 
 void build_cmdline(const std::string& cmd_tokens,
                   std::vector<std::string>& cmdpipe);
 
 const std::string PATH = std::getenv("PATH");
+
 std::string previous_path;
+std::vector<std::string> his;
 bool stdout_redirect = false;
 bool stderr_redirect = false;
 bool append = false;
@@ -57,6 +61,8 @@ int main() {
     shell(prompt);
 
     disable_raw_mode();
+
+    his.push_back(prompt);
 
     build_cmdline(prompt, command);
     if(command.empty()) continue;
@@ -163,14 +169,27 @@ void builtin_cmds(const std::vector<std::string>& cmd){
       }
   }
 
+  // Change working directory
   else if(cmd[0] == "cd"){
     cd(cmd);
   }
 
+  // Shows all past commands typed on shell
+  else if(cmd[0] == "history"){
+    std::cout << history() << std::endl;
+  }
+
+  // Calls external programs
   else{
     if(OSexec(cmd))
       std::cout << cmd[0] << ": command not found" << "\n";
   }
+
+  /////////////////////////
+  // Redirection to file bug after redirection to file using pipe,
+  // after the piped command with redirect the posterior command
+  // will retirect to a file, even when user has not typed redirection command
+  ////////////////////////
 
   stdout_redirect = false;
   stderr_redirect = false;
@@ -332,7 +351,7 @@ std::string type(std::vector<std::string> str){
 
   if(cmd == "") return "";
 
-  if(cmd == "exit" || cmd == "echo" 
+  if(cmd == "exit" || cmd == "echo" || cmd == "history"
     || cmd == "type" || cmd == "pwd" || cmd == "cd")
     return cmd + " is a shell builtin";
   
@@ -477,6 +496,22 @@ int OSexec(std::vector<std::string> cmd){
   }
 
   return 0;
+}
+
+// History builtin command
+std::string history(){
+  if(his.empty())
+    return "";
+
+  std::string ftxt = "";
+  for(int i=0; i < his.size(); i++){
+    if(!ftxt.empty())
+      ftxt += "\n";
+
+    ftxt += std::to_string(i+1) + "  " + his[i]; 
+  }
+
+  return ftxt;
 }
 
 // Write file function

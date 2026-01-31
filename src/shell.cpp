@@ -181,7 +181,7 @@ void longuest_common_prefix(size_t& cursor_pos,
 // Shell <TAB> function
 void TABcomplete(std::string& buffer, size_t& cursor_pos){
     const std::string prefix = buffer.substr(0, cursor_pos);
-    const std::vector<std::string> builtin_cmd = {"exit", "echo", "cd", "type", "pwd"};
+    const std::vector<std::string> builtin_cmd = {"exit", "echo", "cd", "type", "pwd", "history"};
     std::vector<std::string> matches;
     
     for(int i=0; i < builtin_cmd.size(); i++){
