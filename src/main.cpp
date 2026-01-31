@@ -289,7 +289,7 @@ std::string echo(std::vector<std::string> str){
       if(stop)
         break;
       
-      txt += str[i] + " ";
+      txt += str[i];
     }
   }
 
