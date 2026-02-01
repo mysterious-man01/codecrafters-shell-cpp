@@ -43,11 +43,6 @@ void enable_raw_mode(){
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
-// Init history connection
-// void init_history(std::vector<std::string>* history_buffer){
-//     history = history_buffer;
-// }
-
 // Function to refresh terminal's line
 void refresh_line(const std::string& buffer, size_t cursor_pos){
     write(STDOUT_FILENO, "\r\x1b[2K", 5);
@@ -73,7 +68,6 @@ void handle_arrows(const char& ch, size_t& cursor_pos, std::string& buffer){
                     cursor_pos = buffer.size();
                 }
             }
-
             break;
         case 'B': // arrow down (command history)
             if(!history.empty()){
@@ -262,12 +256,9 @@ void shell(std::string& buffer){
         
         // ENTER
         if(ch == '\n' || ch == '\r'){
-            // if(history){
             history.push_back(buffer);
             last_cmd = "";
             history_pos = 0;
-                // history = nullptr;
-            // }
             
             write(STDOUT_FILENO, "\r\n", 2);
             break;

@@ -37,7 +37,6 @@ void build_cmdline(const std::string& cmd_tokens,
 const std::string PATH = std::getenv("PATH");
 
 std::string previous_path;
-// std::vector<std::string> his;
 bool stdout_redirect = false;
 bool stderr_redirect = false;
 bool append = false;
@@ -60,7 +59,6 @@ int main() {
   do{
     enable_raw_mode();
 
-    // init_history(&his);
     shell(prompt);
 
     disable_raw_mode();
@@ -123,6 +121,7 @@ int main() {
   return 0;
 }
 
+// Buitin commands
 void builtin_cmds(const std::vector<std::string>& cmd){
   // Exits shell
   if(cmd[0] == "exit"){
@@ -509,9 +508,6 @@ int OSexec(std::vector<std::string> cmd){
 }
 
 // History builtin command
-//////////////////////////
-// Error to sync last command
-//////////////////////////
 std::string history_command(const std::vector<std::string>& n){
   if(history.empty())
     return "";
@@ -541,6 +537,14 @@ std::string history_command(const std::vector<std::string>& n){
     return "";
   }
 
+  if(n.size() > 2 && n[1] == "-w"){
+    for(i=0; i < history.size(); i++)
+      ftxt += history[i] + "\n";
+
+    write_file(n[n.size() - 1], ftxt, true);
+
+    return "";
+  }
   
   try{
     if(n.size() == 1){
@@ -551,12 +555,8 @@ std::string history_command(const std::vector<std::string>& n){
     i = 0;
   }
 
-  for(; i < history.size(); i++){
-    // if(!ftxt.empty())
-    //   ftxt += "\n";
-
-    ftxt += std::to_string(i+1) + "  " + history[i] + "\n"; 
-  }
+  for(; i < history.size(); i++)
+    ftxt += std::to_string(i+1) + "  " + history[i] + "\n";
 
   return ftxt;
 }
