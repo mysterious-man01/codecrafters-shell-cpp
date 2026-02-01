@@ -514,16 +514,38 @@ std::string history(const std::vector<std::string>& n){
     return "";
 
   std::string ftxt = "";
+  int i;
 
   if(n.size() > 2 && n[1] == "-r"){
-    ftxt = read_file(n[n.size() - 1]);
-    if(ftxt.empty())
+    auto txt = read_file(n[n.size() - 1]);
+    if(txt.empty())
       return "";
+
+    size_t offset = 0;
+    while(offset < txt.size()){
+      size_t pos = txt.find('\n', offset);
+      if(pos == std::string::npos){
+        if(offset < txt.size())
+          his.push_back(txt.substr(offset, txt.size() - 1));
+
+        break;
+      }
+
+      his.push_back(txt.substr(offset, pos - offset));
+      offset = pos + 1;
+    }
+
+    for(i=0; i < his.size(); i++){
+      if(!ftxt.empty())
+        ftxt += "\n";
+
+      ftxt += std::to_string(i+1) + "  " + his[i];
+    }
 
     return ftxt;
   }
 
-  int i;
+  
   try{
     if(n.size() == 1){
       i = 0;
