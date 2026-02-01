@@ -538,8 +538,12 @@ std::string history_command(const std::vector<std::string>& n){
   }
 
   if(n.size() > 2 && n[1] == "-w"){
-    for(i=0; i < history.size(); i++)
-      ftxt += history[i] + "\n";
+    for(i=0; i < history.size(); i++){
+      if(!ftxt.empty())
+        ftxt += "\n";
+      
+      ftxt += history[i];
+    }
 
     write_file(n[n.size() - 1], ftxt, true);
 
