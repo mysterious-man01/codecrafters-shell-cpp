@@ -25,7 +25,7 @@ void cd(std::vector<std::string> path);
 
 int OSexec(std::vector<std::string> cmd);
 
-std::string history(const std::vector<std::string>& n);
+std::string history_command(const std::vector<std::string>& n);
 
 std::string read_file(const std::string& path);
 
@@ -37,7 +37,7 @@ void build_cmdline(const std::string& cmd_tokens,
 const std::string PATH = std::getenv("PATH");
 
 std::string previous_path;
-std::vector<std::string> his;
+// std::vector<std::string> his;
 bool stdout_redirect = false;
 bool stderr_redirect = false;
 bool append = false;
@@ -60,11 +60,11 @@ int main() {
   do{
     enable_raw_mode();
 
-    init_history(his);
+    // init_history(&his);
     shell(prompt);
 
     disable_raw_mode();
-
+    
     build_cmdline(prompt, command);
     if(command.empty()) continue;
 
@@ -178,10 +178,10 @@ void builtin_cmds(const std::vector<std::string>& cmd){
   // Shows all past commands typed on shell
   else if(cmd[0] == "history"){
     if(stdout_redirect){
-      write_file(cmd[cmd.size() - 1], history(cmd), append);
+      write_file(cmd[cmd.size() - 1], history_command(cmd), append);
     }
     else{
-      std::cout << history(cmd);
+      std::cout << history_command(cmd) << std::endl;
       
       if(stderr_redirect){
         write_file(cmd[cmd.size() - 1], "", append);
@@ -509,8 +509,11 @@ int OSexec(std::vector<std::string> cmd){
 }
 
 // History builtin command
-std::string history(const std::vector<std::string>& n){
-  if(his.empty())
+//////////////////////////
+// Error to sync last command
+//////////////////////////
+std::string history_command(const std::vector<std::string>& n){
+  if(history.empty())
     return "";
 
   std::string ftxt = "";
@@ -526,21 +529,14 @@ std::string history(const std::vector<std::string>& n){
       size_t pos = txt.find('\n', offset);
       if(pos == std::string::npos){
         if(offset < txt.size())
-          his.push_back(txt.substr(offset, txt.size() - 1));
+          history.push_back(txt.substr(offset, txt.size() - 1));
 
         break;
       }
 
-      his.push_back(txt.substr(offset, pos - offset));
+      history.push_back(txt.substr(offset, pos - offset));
       offset = pos + 1;
     }
-
-    // for(i=0; i < his.size(); i++){
-    //   if(!ftxt.empty())
-    //     ftxt += "\n";
-
-    //   ftxt += std::to_string(i+1) + "  " + his[i];
-    // }
 
     return "";
   }
@@ -550,16 +546,16 @@ std::string history(const std::vector<std::string>& n){
     if(n.size() == 1){
       i = 0;
     } else
-      i = his.size() - std::atoi(n[1].c_str());
+      i = history.size() - std::atoi(n[1].c_str());
   } catch(const std::bad_cast& e){
     i = 0;
   }
 
-  for(; i < his.size(); i++){
+  for(; i < history.size(); i++){
     if(!ftxt.empty())
       ftxt += "\n";
 
-    ftxt += std::to_string(i+1) + "  " + his[i]; 
+    ftxt += std::to_string(i+1) + "  " + history[i]; 
   }
 
   return ftxt;
