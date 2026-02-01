@@ -27,6 +27,8 @@ int OSexec(std::vector<std::string> cmd);
 
 std::string history(const std::vector<std::string>& n);
 
+std::string read_file(const std::string& path);
+
 void write_file(std::string path, std::string msm, bool append);
 
 void build_cmdline(const std::string& cmd_tokens,
@@ -175,7 +177,16 @@ void builtin_cmds(const std::vector<std::string>& cmd){
 
   // Shows all past commands typed on shell
   else if(cmd[0] == "history"){
-    std::cout << history(cmd) << std::endl;
+    if(stdout_redirect){
+      write_file(cmd[cmd.size() - 1], history(cmd), append);
+    }
+    else{
+      std::cout << history(cmd) << std::endl;
+      
+      if(stderr_redirect){
+        write_file(cmd[cmd.size() - 1], "", append);
+      }
+    }
   }
 
   // Calls external programs
@@ -502,6 +513,16 @@ std::string history(const std::vector<std::string>& n){
   if(his.empty())
     return "";
 
+  std::string ftxt = "";
+
+  if(n.size() > 2 && n[1] == "-r"){
+    ftxt = read_file(n[n.size() - 1]);
+    if(ftxt.empty())
+      return "";
+
+    return ftxt;
+  }
+
   int i;
   try{
     if(n.size() == 1){
@@ -512,7 +533,6 @@ std::string history(const std::vector<std::string>& n){
     i = 0;
   }
 
-  std::string ftxt = "";
   for(; i < his.size(); i++){
     if(!ftxt.empty())
       ftxt += "\n";
@@ -521,6 +541,25 @@ std::string history(const std::vector<std::string>& n){
   }
 
   return ftxt;
+}
+
+// Read a file content as string
+std::string read_file(const std::string& path){
+  int file = open(path.c_str(), O_RDONLY);
+  if(file < 0)
+    std::cerr << "Error: Unable to open file " << path << std::endl;
+
+  std::string txt;
+  char buf[4096];
+  ssize_t n;
+
+  while((n = read(file, buf, sizeof(buf))) > 0){
+    txt.append(buf, n);
+  }
+
+  close(file);
+
+  return txt;
 }
 
 // Write file function
