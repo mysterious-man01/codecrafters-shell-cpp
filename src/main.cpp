@@ -25,7 +25,7 @@ void cd(std::vector<std::string> path);
 
 int OSexec(std::vector<std::string> cmd);
 
-std::string history(std::vector<std::string> n);
+std::string history(const std::vector<std::string>& n);
 
 void write_file(std::string path, std::string msm, bool append);
 
@@ -58,11 +58,10 @@ int main() {
   do{
     enable_raw_mode();
 
+    init_history(his);
     shell(prompt);
 
     disable_raw_mode();
-
-    his.push_back(prompt);
 
     build_cmdline(prompt, command);
     if(command.empty()) continue;
@@ -499,7 +498,7 @@ int OSexec(std::vector<std::string> cmd){
 }
 
 // History builtin command
-std::string history(std::vector<std::string> n){
+std::string history(const std::vector<std::string>& n){
   if(his.empty())
     return "";
 

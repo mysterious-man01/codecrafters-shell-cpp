@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <termios.h>
 #include <cstring>
-#include <vector>
 #include <filesystem>
 #include <unordered_set>
 #include <algorithm>
@@ -15,6 +14,9 @@ const std::string SIMBOL = "$ ";
 
 termios orig_termios;
 bool wasTABed = false;
+std::vector<std::string>* history = nullptr;
+std::string last_cmd;
+int history_pos = 0;
 
 // Disable shell mode
 void disable_raw_mode(){
@@ -41,6 +43,11 @@ void enable_raw_mode(){
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
+// Init history connection
+void init_history(std::vector<std::string>& history_buffer){
+    history = &history_buffer;
+}
+
 // Function to refresh terminal's line
 void refresh_line(const std::string& buffer, size_t cursor_pos){
     write(STDOUT_FILENO, "\r\x1b[2K", 5);
@@ -54,10 +61,36 @@ void refresh_line(const std::string& buffer, size_t cursor_pos){
 }
 
 // Function to handle arrow butons
-void handle_arrows(const char& ch, size_t& cursor_pos, const std::string& buffer){
+void handle_arrows(const char& ch, size_t& cursor_pos, std::string& buffer){
     switch(ch){
         case 'A': // arrow up (command history)
-            //
+            if(history && !history->empty()){
+                if(history_pos <= history->size() && history_pos >= 0){
+                    if(history_pos < history->size())
+                        history_pos++;
+                    
+                    buffer = (*history)[history->size() - history_pos];
+                    cursor_pos = buffer.size();
+                }
+            }
+
+            break;
+        case 'B': // arrow down (command history)
+            if(history && !history->empty()){
+                if(history_pos > 0){
+                    history_pos--;
+
+                    if(history_pos == 0){
+                        buffer = last_cmd;
+                        cursor_pos = buffer.size();
+                    }
+                    else{
+                        buffer = (*history)[history->size() - history_pos];
+                        cursor_pos = buffer.size();
+                    }
+
+                }
+            }
             break;
         case 'C': // right
             if(cursor_pos < buffer.size())
@@ -228,12 +261,19 @@ void shell(std::string& buffer){
         read(STDIN_FILENO, &ch, 1);
         
         if(ch == '\n' || ch == '\r'){
+            if(history){
+                history->push_back(buffer);
+                last_cmd = "";
+                history_pos = 0;
+            }
+            
             write(STDOUT_FILENO, "\r\n", 2);
             break;
         }
         
         if(ch == '\t' && !buffer.empty()){
             TABcomplete(buffer, cursor_pos);
+            last_cmd = buffer;
             write(STDOUT_FILENO, "\r", 1);
             continue;
         }
@@ -260,6 +300,7 @@ void shell(std::string& buffer){
         }
         else{
             handle_chars(ch, buffer, cursor_pos);
+            last_cmd = buffer;
         }
     }
 }
