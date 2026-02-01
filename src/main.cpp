@@ -181,7 +181,7 @@ void builtin_cmds(const std::vector<std::string>& cmd){
       write_file(cmd[cmd.size() - 1], history_command(cmd), append);
     }
     else{
-      std::cout << history_command(cmd) << std::endl;
+      std::cout << history_command(cmd);
       
       if(stderr_redirect){
         write_file(cmd[cmd.size() - 1], "", append);
@@ -552,10 +552,10 @@ std::string history_command(const std::vector<std::string>& n){
   }
 
   for(; i < history.size(); i++){
-    if(!ftxt.empty())
-      ftxt += "\n";
+    // if(!ftxt.empty())
+    //   ftxt += "\n";
 
-    ftxt += std::to_string(i+1) + "  " + history[i]; 
+    ftxt += std::to_string(i+1) + "  " + history[i] + "\n"; 
   }
 
   return ftxt;
