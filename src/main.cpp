@@ -181,7 +181,7 @@ void builtin_cmds(const std::vector<std::string>& cmd){
       write_file(cmd[cmd.size() - 1], history(cmd), append);
     }
     else{
-      std::cout << history(cmd) << std::endl;
+      std::cout << history(cmd);
       
       if(stderr_redirect){
         write_file(cmd[cmd.size() - 1], "", append);
@@ -535,14 +535,14 @@ std::string history(const std::vector<std::string>& n){
       offset = pos + 1;
     }
 
-    for(i=0; i < his.size(); i++){
-      if(!ftxt.empty())
-        ftxt += "\n";
+    // for(i=0; i < his.size(); i++){
+    //   if(!ftxt.empty())
+    //     ftxt += "\n";
 
-      ftxt += std::to_string(i+1) + "  " + his[i];
-    }
+    //   ftxt += std::to_string(i+1) + "  " + his[i];
+    // }
 
-    return ftxt;
+    return "";
   }
 
   
