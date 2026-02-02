@@ -37,6 +37,7 @@ void build_cmdline(const std::string& cmd_tokens,
 const std::string PATH = std::getenv("PATH");
 
 std::string previous_path;
+size_t history_saved = 0;
 bool stdout_redirect = false;
 bool stderr_redirect = false;
 bool append = false;
@@ -513,11 +514,11 @@ std::string history_command(const std::vector<std::string>& n){
     return "";
 
   std::string ftxt = "";
-  int i;
+  size_t i;
 
   if(n.size() > 2){
     if(n[1] == "-r"){
-      auto txt = read_file(n[n.size() - 1]);
+      auto txt = read_file(n.back());
       if(txt.empty())
         return "";
 
@@ -526,7 +527,7 @@ std::string history_command(const std::vector<std::string>& n){
         size_t pos = txt.find('\n', offset);
         if(pos == std::string::npos){
           if(offset < txt.size())
-            history.push_back(txt.substr(offset, txt.size() - 1));
+            history.push_back(txt.substr(offset));
 
           break;
         }
@@ -546,54 +547,18 @@ std::string history_command(const std::vector<std::string>& n){
         ftxt += history[i];
       }
 
-      write_file(n[n.size() - 1], ftxt, false);
+      write_file(n.back(), ftxt, false);
 
       return "";
     }
 
     if(n[1] == "-a"){
-      std::string path = n[n.size() - 1];
-      ftxt = read_file(path);
-
-      if(ftxt.empty()){
-        for(i=0; i < history.size(); i++){
-          if(!ftxt.empty())
-            ftxt += "\n";
-
-          ftxt += history[i];
-        }
-
-        write_file(path, ftxt, true);
+      for(i = history_saved; i < history.size(); i++){
+        ftxt = history[i] + "\n";
       }
-      else{
-        size_t offset = 0;
-        std::vector<std::string> buf;
-        
-        while(offset < ftxt.size()){
-          size_t pos = ftxt.find('\n', offset);
-          if(pos == std::string::npos){
-            if(offset < ftxt.size())
-              buf.push_back(ftxt.substr(offset, ftxt.size() - 1));
 
-            break;
-          }
-
-          buf.push_back(ftxt.substr(offset, pos - offset));
-          offset = pos + 1;
-        }
-
-        ftxt = "";
-        if(buf.size() < history.size()){
-          for(i=buf.size() + 1; i < history.size(); i++){
-            if(!ftxt.empty())
-              ftxt += "\n";
-
-            ftxt += history[i];
-          }
-
-          write_file(path, ftxt, true);
-        }
-      }
+      if(!ftxt.empty())
+        write_file(n.back(), ftxt, true);
 
       return "";
     }
@@ -618,7 +583,7 @@ std::string history_command(const std::vector<std::string>& n){
 std::string read_file(const std::string& path){
   int file = open(path.c_str(), O_RDONLY);
   if(file < 0)
-    std::cerr << "Error: Unable to open file " << path << std::endl;
+    return "";
 
   std::string txt;
   char buf[4096];
