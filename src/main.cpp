@@ -515,39 +515,88 @@ std::string history_command(const std::vector<std::string>& n){
   std::string ftxt = "";
   int i;
 
-  if(n.size() > 2 && n[1] == "-r"){
-    auto txt = read_file(n[n.size() - 1]);
-    if(txt.empty())
-      return "";
+  if(n.size() > 2){
+    if(n[1] == "-r"){
+      auto txt = read_file(n[n.size() - 1]);
+      if(txt.empty())
+        return "";
 
-    size_t offset = 0;
-    while(offset < txt.size()){
-      size_t pos = txt.find('\n', offset);
-      if(pos == std::string::npos){
-        if(offset < txt.size())
-          history.push_back(txt.substr(offset, txt.size() - 1));
+      size_t offset = 0;
+      while(offset < txt.size()){
+        size_t pos = txt.find('\n', offset);
+        if(pos == std::string::npos){
+          if(offset < txt.size())
+            history.push_back(txt.substr(offset, txt.size() - 1));
 
-        break;
+          break;
+        }
+
+        history.push_back(txt.substr(offset, pos - offset));
+        offset = pos + 1;
       }
 
-      history.push_back(txt.substr(offset, pos - offset));
-      offset = pos + 1;
+      return "";
     }
 
-    return "";
-  }
+    if(n[1] == "-w"){
+      for(i=0; i < history.size(); i++){
+        if(!ftxt.empty())
+          ftxt += "\n";
+        
+        ftxt += history[i];
+      }
 
-  if(n.size() > 2 && n[1] == "-w"){
-    for(i=0; i < history.size(); i++){
-      if(!ftxt.empty())
-        ftxt += "\n";
-      
-      ftxt += history[i];
+      write_file(n[n.size() - 1], ftxt, false);
+
+      return "";
     }
 
-    write_file(n[n.size() - 1], ftxt, true);
+    if(n[1] == "-a"){
+      std::string path = n[n.size() - 1];
+      ftxt = read_file(path);
 
-    return "";
+      if(ftxt.empty()){
+        for(i=0; i < history.size(); i++){
+          if(!ftxt.empty())
+            ftxt += "\n";
+
+          ftxt += history[i];
+        }
+
+        write_file(path, ftxt, true);
+      }
+      else{
+        size_t offset = 0;
+        std::vector<std::string> buf;
+        
+        while(offset < ftxt.size()){
+          size_t pos = ftxt.find('\n', offset);
+          if(pos == std::string::npos){
+            if(offset < ftxt.size())
+              buf.push_back(ftxt.substr(offset, ftxt.size() - 1));
+
+            break;
+          }
+
+          buf.push_back(ftxt.substr(offset, pos - offset));
+          offset = pos + 1;
+        }
+
+        ftxt = "";
+        if(buf.size() < history.size()){
+          for(i=buf.size() + 1; i < history.size(); i++){
+            if(!ftxt.empty())
+              ftxt += "\n";
+
+            ftxt += history[i];
+          }
+
+          write_file(path, ftxt, true);
+        }
+      }
+
+      return "";
+    }
   }
   
   try{
