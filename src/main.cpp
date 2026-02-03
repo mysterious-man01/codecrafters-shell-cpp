@@ -540,8 +540,12 @@ std::string history_command(const std::vector<std::string>& n){
     }
 
     if(n[1] == "-w"){
-      for(i=0; i < history.size(); i++)
-        ftxt += history[i] + "\n";
+      for(i=0; i < history.size(); i++){
+        if(!ftxt.empty())
+          ftxt += "\n";
+        
+        ftxt += history[i];
+      }
 
       write_file(n.back(), ftxt, false);
       history_saved = history.size();
@@ -552,7 +556,10 @@ std::string history_command(const std::vector<std::string>& n){
     if(n[1] == "-a"){
       ftxt = "";
       for(i=history_saved; i < history.size(); i++){
-        ftxt += history[i] + "\n";
+        if(!ftxt.empty())
+          ftxt += "\n";
+        
+        ftxt += history[i];
         history_saved++;
       }
 
