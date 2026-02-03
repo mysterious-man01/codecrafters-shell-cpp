@@ -256,9 +256,11 @@ void shell(std::string& buffer){
         
         // ENTER
         if(ch == '\n' || ch == '\r'){
-            history.push_back(buffer);
-            last_cmd = "";
-            history_pos = 0;
+            if(!buffer.empty()){
+                history.push_back(buffer);
+                last_cmd = "";
+                history_pos = 0;
+            }
             
             write(STDOUT_FILENO, "\r\n", 2);
             break;
@@ -297,18 +299,3 @@ void shell(std::string& buffer){
         }
     }
 }
-
-// Test function
-// int main(){
-//     enable_raw_mode();
-
-//     std::string buf;
-
-//     shell(buf);
-
-//     disable_raw_mode();
-
-//     std::cout << "1> " << buf << std::endl;
-    
-//     return 0;
-// }
