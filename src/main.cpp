@@ -34,7 +34,12 @@ void write_file(std::string path, std::string msm, bool append);
 void build_cmdline(const std::string& cmd_tokens,
                   std::vector<std::string>& cmdpipe);
 
+void gethist();
+
+void savehist();
+
 const std::string PATH = std::getenv("PATH");
+std::string HISTFILE;
 
 std::string previous_path;
 size_t history_saved = 0;
@@ -48,13 +53,20 @@ enum class State {
   DoubleQuote
 };
 
-int main() {
+int main(){
   // Flush after every std::cout / std:cerr
   std::cout << std::unitbuf;
   std::cerr << std::unitbuf;
 
+  if(std::getenv("HISTFILE") != nullptr){
+    HISTFILE = std::getenv("HISTFILE");
+  } else
+    HISTFILE = std::string(std::getenv("HOME")) + "/.shellrc";
+
   std::string prompt;
   std::vector<std::string> command;
+
+  gethist();
 
   // Shell REPL loop
   do{
@@ -126,6 +138,7 @@ int main() {
 void builtin_cmds(const std::vector<std::string>& cmd){
   // Exits shell
   if(cmd[0] == "exit"){
+    savehist();
     exit(0);
   }
   
@@ -659,4 +672,39 @@ void build_cmdline(const std::string& cmd_tokens,
     cmdpipe.push_back(cmd_tokens.substr(offset, pos - offset));
     offset = pos + 1;
   }
+}
+
+// Get hitory from HISTFILE and saves on memory
+void gethist(){
+  if(!fs::exists(HISTFILE)){
+    return;
+  }
+
+  std::string file = read_file(HISTFILE);
+
+  size_t offset = 0;
+  while(offset < file.size()){
+    size_t pos = file.find('\n', offset);
+    if(pos == std::string::npos){
+      history.push_back(file.substr(offset));
+      break;
+    }
+
+    history.push_back(file.substr(offset, pos - offset));
+    offset = pos + 1;
+  }
+}
+
+// Save history on in memory to a file in HISTFILE
+void savehist(){
+  std::string hist;
+  for(int i=history_saved; i < history.size(); i++){
+    if(!hist.empty())
+      hist += "\n";
+
+    hist += history[i];
+  }
+
+  if(!hist.empty())
+    write_file(HISTFILE, hist, true);
 }
