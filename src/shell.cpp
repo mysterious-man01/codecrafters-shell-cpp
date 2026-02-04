@@ -1,4 +1,5 @@
 #include "shell.hpp"
+#include "history.hpp"
 
 #include <iostream>
 #include <unistd.h>
@@ -14,7 +15,6 @@ const std::string SIMBOL = "$ ";
 
 termios orig_termios;
 bool wasTABed = false;
-std::vector<std::string> history;
 std::string last_cmd;
 int history_pos = 0;
 
