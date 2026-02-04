@@ -693,6 +693,8 @@ void gethist(){
     history.push_back(file.substr(offset, pos - offset));
     offset = pos + 1;
   }
+
+  history_saved = history.size();
 }
 
 // Save history on in memory to a file in HISTFILE
