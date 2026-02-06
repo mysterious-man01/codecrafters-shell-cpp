@@ -10,4 +10,4 @@ add_executable(shell ${SOURCE_FILES})
 
 target_include_directories(shell PRIVATE src/headers)
 
-target_link_libraries(shell PRIVATE readline)
+# target_link_libraries(shell PRIVATE readline)
